@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>大粤K线 · 建仓/平仓数据抓取</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Microsoft YaHei',sans-serif;background:#0f1117;color:#e0e0e0;min-height:100vh}
+.wrap{max-width:1400px;margin:0 auto;padding:20px}
+
+/* Header */
+.header{display:flex;align-items:center;gap:16px;padding:16px 24px;background:#1a1d2e;border-radius:12px;margin-bottom:20px;flex-wrap:wrap}
+.header h1{font-size:20px;color:#f0c040}
+.header .badge{padding:3px 10px;border-radius:20px;font-size:12px;background:#252838;color:#888}
+.header .status-dot{width:10px;height:10px;border-radius:50%;background:#e74c3c}
+.header .status-dot.live{background:#2ecc71;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Login Panel */
+.login-panel{background:#1a1d2e;border-radius:12px;padding:24px;margin-bottom:20px}
+.login-panel h2{font-size:16px;margin-bottom:16px;color:#f0c040}
+.login-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px}
+.login-row input{padding:10px 14px;background:#252838;border:1px solid #333;border-radius:8px;color:#e0e0e0;font-size:14px}
+.login-row input:focus{outline:none;border-color:#f0c040}
+.login-row input[type=password]{font-family:monospace;letter-spacing:2px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:#f0c040;color:#111;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:bold;transition:.2s}
+.btn:hover{background:#f5d060}
+.btn:active{transform:scale(.97)}
+.btn.green{background:#2ecc71;color:#fff}
+.btn.green:hover{background:#3ddb80}
+.btn.red{background:#e74c3c;color:#fff}
+.btn.red:hover{background:#ec6a5e}
+.btn.gray{background:#333;color:#aaa}
+.btn.gray:hover{background:#444}
+.btn.small{padding:6px 14px;font-size:13px}
+.msg{padding:8px 12px;border-radius:6px;font-size:13px;margin-top:10px}
+.msg.err{background:rgba(231,76,60,.15);border:1px solid #e74c3c;color:#e74c3c}
+.msg.ok{background:rgba(46,204,113,.15);border:1px solid #2ecc71;color:#2ecc71}
+.msg.info{background:rgba(52,152,219,.15);border:1px solid #3498db;color:#3498db}
+
+/* Filters */
+.filters{background:#1a1d2e;border-radius:12px;padding:20px;margin-bottom:16px}
+.filters h2{font-size:14px;margin-bottom:14px;color:#888}
+.filter-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.filter-row label{font-size:13px;color:#888;white-space:nowrap}
+.filter-row input, .filter-row select{padding:8px 12px;background:#252838;border:1px solid #333;border-radius:6px;color:#e0e0e0;font-size:13px}
+.filter-row input[type=date]{font-family:inherit}
+.filter-row select{font-family:inherit}
+.filter-row select option{background:#1a1d2e}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.stat-card{background:#1a1d2e;border-radius:10px;padding:16px;text-align:center}
+.stat-card .val{font-size:26px;font-weight:bold;color:#f0c040}
+.stat-card .lbl{font-size:12px;color:#666;margin-top:4px}
+.stat-card.profit .val{color:#2ecc71}
+.stat-card.loss .val{color:#e74c3c}
+
+/* Table */
+.table-wrap{background:#1a1d2e;border-radius:12px;overflow:hidden;margin-bottom:16px}
+.toolbar{display:flex;gap:8px;padding:14px 16px;border-bottom:1px solid #252838;flex-wrap:wrap;align-items:center}
+.toolbar span{font-size:13px;color:#666;margin-left:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:#252838;padding:12px 10px;text-align:left;font-size:12px;color:#888;white-space:nowrap;position:sticky;top:0;z-index:2}
+tbody tr{border-bottom:1px solid #1e2130;transition:background .15s}
+tbody tr:hover{background:#252838}
+tbody td{padding:10px 10px;vertical-align:middle;white-space:nowrap}
+tbody td .dir{font-weight:bold}
+tbody td .dir.空{color:#e74c3c}
+tbody td .dir.多{color:#2ecc71}
+tbody td .price{font-family:monospace;font-size:13px}
+tbody td .teacher-tag{display:inline-block;padding:2px 8px;background:#252838;border-radius:4px;font-size:12px;color:#aaa}
+tbody td .closed-badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;background:rgba(46,204,113,.15);color:#2ecc71}
+tbody td .open-badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;background:rgba(241,196,64,.15);color:#f0c040}
+tbody td .sl{font-family:monospace;color:#e74c3c;font-size:12px}
+tbody td .tp{font-family:monospace;color:#2ecc71;font-size:12px}
+tbody td .profit{font-family:monospace;font-weight:bold}
+tbody td .profit.pos{color:#2ecc71}
+tbody td .profit.neg{color:#e74c3c}
+.pager{display:flex;gap:8px;padding:14px 16px;border-top:1px solid #252838;align-items:center;flex-wrap:wrap}
+.pager button{padding:7px 14px;background:#252838;border:1px solid #333;color:#e0e0e0;border-radius:6px;cursor:pointer;font-size:13px}
+.pager button:hover{background:#333}
+.pager button.active{background:#f0c040;color:#111;border-color:#f0c040}
+.pager span{font-size:13px;color:#666;margin-left:auto}
+
+/* Sidebar fields */
+.field-tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;background:#333;color:#888}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>📊 大粤K线 · 建仓/平仓数据</h1>
+    <span class="badge">房间 7000</span>
+    <span class="badge" id="modeBadge">建仓提醒</span>
+    <div id="connStatus" style="margin-left:auto;display:flex;align-items:center;gap:6px">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusTxt" style="font-size:13px;color:#888">未连接</span>
+    </div>
+  </div>
+
+  <!-- Login -->
+  <div class="login-panel" id="loginPanel">
+    <h2>🔑 登录</h2>
+    <div class="login-row">
+      <input type="password" id="fRoomPwd" placeholder="房间密码（默认：881199）" value="881199">
+      <input type="text" id="fPhone" placeholder="手机号（可选）" value="16616135917">
+      <input type="password" id="fPass" placeholder="账号密码（可选）" value="135917">
+    </div>
+    <div class="login-row">
+      <button class="btn green" id="btnLoginFull">🔓 登录并加载数据</button>
+      <span style="font-size:12px;color:#666;padding:10px">（账号登录后可查看完整止损/止盈/获利点数）</span>
+    </div>
+    <div id="loginMsg"></div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="statsArea" style="display:none">
+    <div class="stat-card">
+      <div class="val" id="statTotal">-</div>
+      <div class="lbl">总记录数</div>
+    </div>
+    <div class="stat-card">
+      <div class="val" id="statPage">-</div>
+      <div class="lbl">本页记录</div>
+    </div>
+    <div class="stat-card">
+      <div class="val" id="statClosed">-</div>
+      <div class="lbl">已平仓</div>
+    </div>
+    <div class="stat-card">
+      <div class="val" id="statOpen">-</div>
+      <div class="lbl">未平仓</div>
+    </div>
+    <div class="stat-card">
+      <div class="val" id="statProfit">-</div>
+      <div class="lbl">盈利记录</div>
+    </div>
+    <div class="stat-card loss">
+      <div class="val" id="statLoss">-</div>
+      <div class="lbl">亏损记录</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters" id="filtersArea" style="display:none">
+    <h2>🔍 筛选 &amp; 工具</h2>
+    <div class="filter-row">
+      <label>日期从</label><input type="date" id="fStart">
+      <label>至</label><input type="date" id="fEnd">
+      <label>老师</label>
+      <select id="fTeacher"><option value="">全部老师</option></select>
+      <label>方向</label>
+      <select id="fDir"><option value="">全部</option><option value="多">多</option><option value="空">空</option></select>
+      <label>商品</label><input type="text" id="fProduct" placeholder="如：美黄金" style="width:120px">
+      <button class="btn small green" id="btnFetch">📥 抓取本页</button>
+      <button class="btn small" id="btnFetchAll">📥 抓取全部</button>
+      <button class="btn small green" id="btnExport">💾 导出 CSV</button>
+    </div>
+  </div>
+
+  <!-- Data Table -->
+  <div class="table-wrap" id="tableArea" style="display:none">
+    <div class="toolbar">
+      <strong>📋 数据列表</strong>
+      <button class="btn small" id="btnMode">切换：建仓提醒</button>
+      <span id="tableInfo"></span>
+    </div>
+    <div style="overflow-x:auto">
+    <table id="dataTable">
+      <thead id="tableHead"></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+    </div>
+    <div class="pager">
+      <button id="btnFirst">« 首页</button>
+      <button id="btnPrev">‹ 上一页</button>
+      <span id="pageNums"></span>
+      <button id="btnNext">下一页 ›</button>
+      <button id="btnLast">末页 »</button>
+      <span id="pageInfo"></span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = '';  // 同源代理
+
+// State
+let allRows = [];
+let filteredRows = [];
+let page = 1;
+const PAGE_SIZE = 20;
+let currentMode = 'merged'; // 'jc'=建仓提醒, 'pc'=平仓提醒, 'merged'=合并（含全部字段）
+let isFetching = false;
+
+// All modes share the same columns
+const COLS = [
+  {key:'openTime',  label:'开仓时间',  w:'160'},
+  {key:'direction', label:'方向',      w:'55'},
+  {key:'product',   label:'商品',      w:'100'},
+  {key:'openPrice', label:'开仓点位',  w:'100'},
+  {key:'stopLoss',  label:'止损',     w:'100', cls:'sl'},
+  {key:'takeProfit',label:'止盈',     w:'130', cls:'tp'},
+  {key:'closeTime', label:'平仓时间',  w:'160'},
+  {key:'closePrice',label:'平仓点位',  w:'100'},
+  {key:'profitPts', label:'获利点数',  w:'90',  cls:'profit'},
+  {key:'teacher',   label:'老师',      w:'90'},
+  {key:'status',    label:'状态',      w:'70'},
+];
+
+function currentCols() { return COLS; }
+
+// API
+function api(path, method, body) {
+  return fetch(API + path, {
+    method: method || 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  }).then(r => r.json());
+}
+
+// Render table head
+function renderHead(cols) {
+  const thead = document.getElementById('tableHead');
+  thead.innerHTML = '<tr>' + cols.map(c =>
+    `<th style="width:${c.w}px">${c.label}</th>`
+  ).join('') + '</tr>';
+}
+
+// Render table body
+function renderTable(rows) {
+  const cols = currentCols();
+  const start = (page - 1) * PAGE_SIZE;
+  const pageRows = rows.slice(start, start + PAGE_SIZE);
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = pageRows.map((row, i) => {
+    const trClass = i % 2 === 0 ? '' : 'style="background:#1c1f2d"';
+    return '<tr ' + trClass + '>' + cols.map(c => {
+      let val = row[c.key] !== undefined ? row[c.key] : '';
+      let cls = c.cls || '';
+      let title = val ? ` title="${val}"` : '';
+      
+      if (c.key === 'direction') {
+        return `<td><span class="dir ${val}">${val}</span></td>`;
+      }
+      if (c.key === 'openPrice' || c.key === 'closePrice' || c.key === 'stopLoss' || c.key === 'takeProfit') {
+        return `<td><span class="price${cls ? ' ' + cls : ''}">${val}</span></td>`;
+      }
+      if (c.key === 'profitPts') {
+        if (!val) return '<td><span class="field-tag">未平仓</span></td>';
+        const isNeg = parseFloat(val) < 0;
+        return `<td><span class="profit ${isNeg ? 'neg' : 'pos'}">${val}</span></td>`;
+      }
+      if (c.key === 'teacher') {
+        return `<td><span class="teacher-tag">${val}</span></td>`;
+      }
+      if (c.key === 'status') {
+        if (row.isClosed) return `<td><span class="closed-badge">已平仓</span></td>`;
+        return `<td><span class="open-badge">未平仓</span></td>`;
+      }
+      return `<td${title} style="max-width:${c.w}px;overflow:hidden;text-overflow:ellipsis">${val}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+  
+  document.getElementById('tableInfo').textContent = 
+    `共 ${rows.length} 条 | 第 ${start + 1}-${Math.min(start + PAGE_SIZE, rows.length)} 条`;
+}
+
+// Stats
+function updateStats(rows) {
+  document.getElementById('statTotal').textContent = rows.length;
+  document.getElementById('statPage').textContent = rows.length > 0 
+    ? `${(page-1)*PAGE_SIZE+1}-${Math.min(page*PAGE_SIZE, rows.length)}` : 0;
+  const closed = rows.filter(r => r.isClosed).length;
+  document.getElementById('statClosed').textContent = closed;
+  document.getElementById('statOpen').textContent = rows.length - closed;
+  
+  // profit/loss analysis (from profitPts)
+  const profitRows = rows.filter(r => r.profitPts && parseFloat(r.profitPts) > 0);
+  const lossRows = rows.filter(r => r.profitPts && parseFloat(r.profitPts) < 0);
+  document.getElementById('statProfit').textContent = profitRows.length;
+  document.getElementById('statLoss').textContent = lossRows.length;
+}
+
+// Pager
+function renderPager(rows) {
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const nums = document.getElementById('pageNums');
+  let html = '';
+  const range = 2;
+  for (let p = Math.max(1, page-range); p <= Math.min(totalPages, page+range); p++) {
+    html += `<button class="${p===page?'active':''}" onclick="goPage(${p})">${p}</button>`;
+  }
+  nums.innerHTML = html;
+  document.getElementById('pageInfo').textContent = `第 ${page} / ${totalPages} 页`;
+}
+
+function goPage(p) {
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  page = Math.max(1, Math.min(p, totalPages));
+  renderTable(filteredRows);
+  renderPager(filteredRows);
+}
+
+// Apply filters
+function applyFilters() {
+  const startDate = document.getElementById('fStart').value;
+  const endDate   = document.getElementById('fEnd').value;
+  const teacher   = document.getElementById('fTeacher').value;
+  const dir       = document.getElementById('fDir').value;
+  const product   = document.getElementById('fProduct').value.trim();
+  
+  filteredRows = allRows.filter(row => {
+    if (startDate) {
+      const d = row.openTime.split(' ')[0].replace(/\//g,'-');
+      if (d < startDate) return false;
+    }
+    if (endDate) {
+      const d = row.openTime.split(' ')[0].replace(/\//g,'-');
+      if (d > endDate) return false;
+    }
+    if (teacher && row.teacher !== teacher) return false;
+    if (dir && row.direction !== dir) return false;
+    if (product && !row.product.includes(product)) return false;
+    return true;
+  });
+  
+  page = 1;
+  renderTable(filteredRows);
+  renderPager(filteredRows);
+  updateStats(filteredRows);
+}
+
+// Login
+function showMsg(id, html, type) {
+  const el = document.getElementById(id);
+  el.innerHTML = `<div class="msg ${type}">${html}</div>`;
+  setTimeout(() => { el.innerHTML = ''; }, 4000);
+}
+
+function updateStatus(loggedIn) {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusTxt');
+  if (loggedIn) {
+    dot.classList.add('live');
+    txt.textContent = '已登录';
+    document.getElementById('filtersArea').style.display = 'block';
+    document.getElementById('statsArea').style.display = 'grid';
+  } else {
+    dot.classList.remove('live');
+    txt.textContent = '未登录';
+    document.getElementById('filtersArea').style.display = 'none';
+    document.getElementById('statsArea').style.display = 'none';
+  }
+}
+
+async function doLogin() {
+  const pwd = document.getElementById('fRoomPwd').value;
+  const phone = document.getElementById('fPhone').value;
+  const pass = document.getElementById('fPass').value;
+  const btn = document.getElementById('btnLoginFull');
+  btn.textContent = '⏳ 登录中...';
+  btn.disabled = true;
+  try {
+    const r = await api('/login', 'POST', { password: pwd, phone, pass });
+    if (r.ok) {
+      updateStatus(true);
+      showMsg('loginMsg', '登录成功！正在抓取数据...', 'ok');
+      document.getElementById('tableArea').style.display = 'block';
+      renderHead(currentCols());
+      await doFetch(false);
+    } else {
+      showMsg('loginMsg', '登录失败：' + (r.error || '未知错误'), 'err');
+    }
+  } catch(e) {
+    showMsg('loginMsg', '请求错误：' + e.message, 'err');
+  } finally {
+    btn.textContent = '🔓 登录并加载数据';
+    btn.disabled = false;
+  }
+}
+
+// Load teachers
+async function loadTeachers() {
+  try {
+    const r = await api('/teachers');
+    const sel = document.getElementById('fTeacher');
+    Object.values(r).forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      sel.appendChild(opt);
+    });
+  } catch(e) {}
+}
+
+// Fetch
+async function doFetch(all) {
+  if (isFetching) return;
+  if (!all && allRows.length > 0) {
+    // Already fetched, just filter
+    applyFilters();
+    return;
+  }
+  
+  isFetching = true;
+  const btn = all ? document.getElementById('btnFetchAll') : document.getElementById('btnFetch');
+  const origText = btn.textContent;
+  btn.textContent = '⏳ 抓取中...';
+  btn.disabled = true;
+  
+  try {
+    // Build filters from date inputs
+    const startDate = document.getElementById('fStart').value;
+    const endDate   = document.getElementById('fEnd').value;
+    const filters = {};
+    if (startDate) filters['pt'] = startDate.replace(/-/g, '/');
+    if (endDate)   filters['et'] = endDate.replace(/-/g, '/');
+    
+    const r = await api('/fetch', 'POST', { mode: currentMode, filters });
+    if (!r.ok) throw new Error(r.error || '抓取失败');
+    
+    allRows = r.rows;
+    filteredRows = [...allRows];
+    page = 1;
+    
+    renderTable(filteredRows);
+    renderPager(filteredRows);
+    updateStats(filteredRows);
+    
+    document.getElementById('tableArea').style.display = 'block';
+    const badge = document.getElementById('modeBadge');
+    badge.textContent = currentMode === 'jc' ? '建仓提醒（含止损止盈）' : '平仓提醒（含平仓价）';
+    
+  } catch(e) {
+    alert('抓取失败：' + e.message);
+  } finally {
+    btn.textContent = origText;
+    btn.disabled = false;
+    isFetching = false;
+  }
+}
+
+// Export CSV
+function exportCSV() {
+  if (filteredRows.length === 0) { alert('没有数据可导出'); return; }
+  const cols = currentCols();
+  const header = cols.map(c => c.label).join(',');
+  const rows = filteredRows.map(row => 
+    cols.map(c => {
+      let v = (row[c.key] !== undefined ? row[c.key] : '');
+      if (String(v).includes(',') || String(v).includes('"') || String(v).includes('\n')) {
+        v = '"' + String(v).replace(/"/g, '""') + '"';
+      }
+      return v;
+    }).join(',')
+  );
+  const csv = '\uFEFF' + [header, ...rows].join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8-sig'});
+  const a = document.createElement('a');
+  const dt = new Date().toISOString().slice(0,10);
+  a.href = URL.createObjectURL(blob);
+  a.download = `大粤K线_${currentMode === 'jc' ? '建仓' : '平仓'}_${dt}.csv`;
+  a.click();
+}
+
+// Events
+document.getElementById('btnLoginFull').onclick = doLogin;
+document.getElementById('btnFetch').onclick = () => doFetch(false);
+document.getElementById('btnFetchAll').onclick = () => doFetch(true);
+document.getElementById('btnExport').onclick = exportCSV;
+
+document.getElementById('btnFirst').onclick = () => goPage(1);
+document.getElementById('btnPrev').onclick = () => goPage(page - 1);
+document.getElementById('btnNext').onclick = () => goPage(page + 1);
+document.getElementById('btnLast').onclick = () => goPage(9999);
+
+// Mode labels
+const MODE_LABELS = { merged: '合并模式（含止损止盈）', jc: '建仓提醒', pc: '平仓提醒' };
+document.getElementById('btnMode').onclick = () => {
+  const modes = ['merged', 'jc', 'pc'];
+  const idx = modes.indexOf(currentMode);
+  currentMode = modes[(idx + 1) % modes.length];
+  document.getElementById('btnMode').textContent = '切换：' + MODE_LABELS[modes[(idx+2)%3]];
+  document.getElementById('modeBadge').textContent = MODE_LABELS[currentMode];
+  allRows = []; filteredRows = [];
+  renderHead(currentCols());
+  renderTable([]);
+  renderPager([]);
+  updateStats([]);
+};
+
+// Filter on change
+['fStart','fEnd','fTeacher','fDir','fProduct'].forEach(id => {
+  document.getElementById(id).oninput = applyFilters;
+  document.getElementById(id).onchange = applyFilters;
+});
+
+// Init
+function init() {
+  const today = new Date().toISOString().slice(0, 10);
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  document.getElementById('fEnd').value = today;
+  document.getElementById('fStart').value = weekAgo;
+  
+  renderHead(currentCols());
+  loadTeachers();
+  
+  // Check login status
+  api('/status').then(r => {
+    if (r.loggedIn) {
+      updateStatus(true);
+      document.getElementById('tableArea').style.display = 'block';
+    }
+  }).catch(() => {});
+}
+
+init();
+</script>
+</body>
+</html>
