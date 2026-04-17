@@ -1,0 +1,20 @@
+[OK] [17:14:43] Server started on http://localhost:3456
+[i] [17:14:43] Open http://localhost:3456/ in browser
+[W] [17:14:43] First use: POST /login {password:"881199"}
+[i] [17:14:46] Login attempt, pwd len=6
+[i] [17:14:46] Cookie set: ASPSESSIONIDCCRRBADQ=LPFDLPAADAFBHJINBNINHIOG
+[i] [17:14:46] Check status=200 bodyLen=0 body=""
+[OK] [17:14:46] LOGIN SUCCESS
+[D] [17:14:46] GET: /generalmodule/shouted/_Data_Ping_Show.asp?roomid=7000&page=1&pt=2026-04-16&tt=2026-04-16
+[OK] [17:14:46] Parsed 0 rows
+[D] [17:14:57] GET: /generalmodule/shouted/_Data_Ping_Show.asp?roomid=7000&page=1&pt=2026-04-16&tt=2026-04-16
+[OK] [17:14:57] Parsed 0 rows
+[D] [17:15:02] GET: /generalmodule/shouted/_Data_Ping_Show.asp?roomid=7000&page=1&pt=2026-04-16&tt=2026-04-16
+[OK] [17:15:02] Parsed 0 rows
+[D] [17:15:10] GET: /generalmodule/shouted/_Data_Ping_Show.asp?roomid=7000&page=1&pt=2026-04-16&tt=2026-04-16
+[OK] [17:15:10] Parsed 0 rows
+[i] [17:15:45] Login attempt, pwd len=6
+[i] [17:15:45] Check status=200 bodyLen=0 body=""
+[OK] [17:15:45] LOGIN SUCCESS
+[D] [17:15:45] GET: /generalmodule/shouted/_Data_Ping_Show.asp?roomid=7000&page=1
+[OK] [17:15:45] Parsed 10 rows

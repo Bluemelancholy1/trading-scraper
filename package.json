@@ -1,0 +1,1 @@
+﻿{\r\n  " name\: \trading-scraper\,\r\n \version\: \1.0.0\,\r\n \description\: \Trading data scraper for Lulutong\,\r\n \main\: \index.html\,\r\n \scripts\: {\r\n \start\: \node proxy-server.js\\r\n },\r\n \dependencies\: {}\r\n}
