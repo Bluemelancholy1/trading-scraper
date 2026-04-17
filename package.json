@@ -1,1 +1,42 @@
-﻿{\r\n  " name\: \trading-scraper\,\r\n \version\: \1.0.0\,\r\n \description\: \Trading data scraper for Lulutong\,\r\n \main\: \index.html\,\r\n \scripts\: {\r\n \start\: \node proxy-server.js\\r\n },\r\n \dependencies\: {}\r\n}
+{
+  "name": "trading-scraper",
+  "version": "1.0.0",
+  "description": "Trading data scraper for Lulutong",
+  "main": "index.html",
+  "scripts": {
+    "start": "node proxy-server.js"
+  },
+  "dependencies": {},
+  "build": {
+    "appId": "com.trading.scraper",
+    "productName": "交易数据抓取工具",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "proxy-server.js",
+      "main.js",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Bluemelancholy1",
+      "repo": "trading-scraper"
+    }
+  }
+}

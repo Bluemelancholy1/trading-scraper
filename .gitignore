@@ -1,1 +1,7 @@
-﻿node_modules/\r\ndist/\r\n.DS_Store\r\n__pycache__/
+node_modules/
+dist/
+.DS_Store
+__pycache__/
+package-lock.json
+write-main.js
+clean.ps1
