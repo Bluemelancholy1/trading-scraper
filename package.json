@@ -1,8 +1,8 @@
 {
   "name": "trading-scraper",
   "version": "1.0.0",
-  "description": "Trading data scraper for Lulutong",
-  "main": "index.html",
+  "description": "交易数据抓取工具",
+  "main": "main.js",
   "scripts": {
     "start": "node proxy-server.js"
   },
@@ -14,11 +14,13 @@
       "output": "dist"
     },
     "files": [
-      "index.html",
-      "proxy-server.js",
-      "main.js",
-      "package.json"
+      "**/*",
+      "!node_modules/*/{CHANGELOG.md,README.md,readme.md,changelog.md,LICENSE,license,LICENSE.md}",
+      "!node_modules/.cache/**/*"
     ],
+    "extraMetadata": {
+      "main": "main.js"
+    },
     "win": {
       "target": [
         {
