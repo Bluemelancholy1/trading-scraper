@@ -3,8 +3,8 @@
   "version": "1.0.1",
   "description": "交易数据抓取工具",
   "author": "陈少",
-  "main": "proxy-server.js",
+  "main": "api/index.js",
   "scripts": {
-    "start": "node proxy-server.js"
+    "start": "node api/index.js"
   }
 }
