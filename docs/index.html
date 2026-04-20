@@ -153,7 +153,7 @@ td.pts-neg{color:#e74c3c}
 
 <script>
 const APP_PASS = '881199';
-const BASE = 'https://cors-anywhere.herokuapp.com/https://nbqh.lulutong.club';
+const BASE = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://nbqh.lulutong.club');
 const ROOM_ID = 7000;
 
 const TEACHERS = {
@@ -278,8 +278,9 @@ function parsePCPage(html) {
   return rows;
 }
 
-async function fetchPage(page, url, parser) {
-  const fullUrl = url + (url.includes('?') ? '&' : '?') + `roomid=${ROOM_ID}&page=${page}`;
+async function fetchPage(page, urlPath, parser) {
+  const targetUrl = 'https://nbqh.lulutong.club' + urlPath + (urlPath.includes('?') ? '&' : '?') + `roomid=${ROOM_ID}&page=${page}`;
+  const fullUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(targetUrl);
   try {
     const resp = await httpReq(fullUrl, 'GET');
     if (resp.status !== 200) throw new Error('HTTP ' + resp.status);
@@ -296,13 +297,13 @@ async function fetchAllData() {
   const jcRows = [], pcRows = [];
   
   for (let p = 1; p <= 8; p++) {
-    const rows = await fetchPage(p, BASE + '/generalmodule/shouted/_data_start_show.asp', parseJCPage);
+    const rows = await fetchPage(p, '/generalmodule/shouted/_data_start_show.asp', parseJCPage);
     jcRows.push(...rows);
     if (rows.length < 10) break;
   }
   
   for (let p = 1; p <= 8; p++) {
-    const rows = await fetchPage(p, BASE + '/generalmodule/shouted/_Data_Ping_Show.asp', parsePCPage);
+    const rows = await fetchPage(p, '/generalmodule/shouted/_Data_Ping_Show.asp', parsePCPage);
     pcRows.push(...rows);
     if (rows.length < 10) break;
   }
