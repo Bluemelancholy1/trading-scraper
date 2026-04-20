@@ -13,3 +13,5 @@ task-summary_*
 _*.js
 _*.ps1
 _*.log
+
+.vercel
