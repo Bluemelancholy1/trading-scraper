@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>大粤K线 · 建仓/平仓数据抓取</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Microsoft YaHei',sans-serif;background:#0f1117;color:#e0e0e0;min-height:100vh}
+.wrap{max-width:1400px;margin:0 auto;padding:20px}
+
+/* Header */
+.header{display:flex;align-items:center;gap:16px;padding:16px 24px;background:#1a1d2e;border-radius:12px;margin-bottom:20px;flex-wrap:wrap}
+.header h1{font-size:20px;color:#f0c040}
+.header .badge{padding:3px 10px;border-radius:20px;font-size:12px;background:#252838;color:#888}
+.header .status-dot{width:10px;height:10px;border-radius:50%;background:#e74c3c}
+.header .status-dot.live{background:#2ecc71;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Login Panel */
+.login-panel{background:#1a1d2e;border-radius:12px;padding:24px;margin-bottom:20px}
+.login-panel h2{font-size:16px;margin-bottom:16px;color:#f0c040}
+.login-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px}
+.login-row input{padding:10px 14px;background:#252838;border:1px solid #333;border-radius:8px;color:#e0e0e0;font-size:14px}
+.login-row input:focus{outline:none;border-color:#f0c040}
+.login-row input[type=password]{font-family:monospace;letter-spacing:2px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:#f0c040;color:#0f1117;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:bold;transition:.2s;box-shadow:0 0 0 0 rgba(240,192,64,.4)}
+.btn:hover{background:#f5d060;box-shadow:0 0 12px rgba(240,192,64,.35)}
+.btn:active{transform:scale(.97)}
+.btn.green{background:#2ecc71;color:#fff}
+.btn.green:hover{background:#27ae60}
+.btn.red{background:#e74c3c;color:#fff}
+.btn.red:hover{background:#c0392b}
+.btn.gray{background:#252838;color:#888}
+.btn.gray:hover{background:#333}
+.btn.small{padding:6px 14px;font-size:13px}
+.msg{padding:8px 12px;border-radius:6px;font-size:13px;margin-top:10px}
+.msg.err{background:rgba(231,76,60,.15);border:1px solid #e74c3c;color:#e74c3c}
+.msg.ok{background:rgba(46,204,113,.15);border:1px solid #2ecc71;color:#2ecc71}
+.msg.info{background:rgba(52,152,219,.15);border:1px solid #3498db;color:#3498db}
+
+/* Filters */
+.filters{background:#1a1d2e;border-radius:12px;padding:20px;margin-bottom:16px}
+.filters h2{font-size:14px;margin-bottom:14px;color:#888}
+.filter-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.filter-row label{font-size:13px;color:#888;white-space:nowrap}
+.filter-row input, .filter-row select{padding:8px 12px;background:#252838;border:1px solid #333;border-radius:6px;color:#e0e0e0;font-size:13px}
+.filter-row input[type=date]{font-family:inherit}
+.filter-row select{font-family:inherit}
+.filter-row select option{background:#1a1d2e}
+
+/* Stats */
+.stats{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:16px}
+.stat-card{background:#1a1d2e;border-radius:12px;padding:16px 20px;min-width:140px;flex:1}
+.stat-card .label{font-size:12px;color:#888;margin-bottom:4px}
+.stat-card .value{font-size:22px;font-weight:bold;color:#f0c040}
+.stat-card .sub{font-size:12px;color:#666;margin-top:4px}
+
+/* Table */
+.table-wrap{background:#1a1d2e;border-radius:12px;overflow:hidden}
+.table-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #252838}
+.table-header h2{font-size:16px;color:#f0c040}
+.table-scroll{overflow-x:auto;max-height:70vh}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:900px}
+th,td{padding:12px 16px;text-align:left;border-bottom:1px solid #252838}
+th{background:#252838;color:#888;font-weight:600;position:sticky;top:0;z-index:10}
+tr:hover{background:#252838}
+td{color:#ccc}
+td.up{color:#2ecc71;font-weight:bold}
+td.down{color:#e74c3c;font-weight:bold}
+td.pts-pos{color:#2ecc71}
+td.pts-neg{color:#e74c3c}
+.loading{text-align:center;padding:40px;color:#666}
+.empty{text-align:center;padding:60px;color:#666}
+
+/* Lock Screen */
+.lock-screen{position:fixed;inset:0;background:#0f1117;z-index:1000;display:flex;align-items:center;justify-content:center}
+.lock-box{background:#1a1d2e;border-radius:16px;padding:40px;text-align:center;max-width:360px;width:90%}
+.lock-box h2{font-size:20px;margin-bottom:8px;color:#f0c040}
+.lock-box p{color:#888;margin-bottom:24px;font-size:14px}
+.lock-box input{width:100%;padding:14px;background:#252838;border:1px solid #333;border-radius:10px;color:#e0e0e0;font-size:16px;text-align:center;margin-bottom:16px}
+.lock-box input:focus{outline:none;border-color:#f0c040}
+.lock-box .error{color:#e74c3c;font-size:13px;margin-top:8px}
+
+/* Hidden */
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <h1>大粤K线</h1>
+    <span class="badge">建仓/平仓数据</span>
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusTxt" style="font-size:13px;color:#888">未登录</span>
+  </div>
+
+  <div class="login-panel">
+    <h2>房间密码</h2>
+    <div class="login-row">
+      <input type="password" id="roomPass" placeholder="房间密码 (默认: 881199)" value="881199">
+      <button class="btn" onclick="doUnlock()">解锁</button>
+    </div>
+    <div id="loginMsg"></div>
+  </div>
+
+  <div class="filters">
+    <h2>筛选条件</h2>
+    <div class="filter-row">
+      <label>日期从</label>
+      <input type="date" id="filterStart">
+      <label>到</label>
+      <input type="date" id="filterEnd">
+      <label>老师</label>
+      <select id="filterTeacher"><option value="">全部</option></select>
+      <label>产品</label>
+      <select id="filterProduct"><option value="">全部</option></select>
+      <button class="btn small" onclick="applyFilters()">应用筛选</button>
+      <button class="btn small gray" onclick="clearFilters()">清除</button>
+    </div>
+  </div>
+
+  <div class="stats" id="stats">
+    <div class="stat-card"><div class="label">总单数</div><div class="value" id="statTotal">-</div></div>
+    <div class="stat-card"><div class="label">盈利单</div><div class="value" id="statWin">-</div><div class="sub" id="statWinRate">-</div></div>
+    <div class="stat-card"><div class="label">亏损单</div><div class="value" id="statLoss">-</div></div>
+    <div class="stat-card"><div class="label">总盈亏</div><div class="value" id="statProfit">-</div></div>
+  </div>
+
+  <div class="table-wrap">
+    <div class="table-header">
+      <h2>数据列表</h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn small" onclick="fetchData()">刷新数据</button>
+        <button class="btn small gray" onclick="exportCSV()">导出CSV</button>
+      </div>
+    </div>
+    <div class="table-scroll" id="tableContainer">
+      <div class="loading">点击"刷新数据"加载...</div>
+    </div>
+  </div>
+</div>
+
+<div class="lock-screen" id="lockScreen">
+  <div class="lock-box">
+    <h2>大粤K线</h2>
+    <p>请输入访问密码</p>
+    <input type="password" id="lockPass" placeholder="密码" onkeypress="if(event.key==='Enter')unlock()">
+    <button class="btn" onclick="unlock()" style="width:100%">解锁</button>
+    <div class="error" id="lockError"></div>
+  </div>
+</div>
+
+<script>
+const APP_PASS = '881199';
+const BASE = 'https://nbqh.lulutong.club';
+const ROOM_ID = 7000;
+
+const TEACHERS = {
+  4421:'大元老师', 4767:'青松老师', 3814:'山野老师',
+  3154:'羽木老师', 4732:'安然老师', 4460:'泰山老师',
+  3153:'大元老师', 3155:'夏美老师',
+};
+
+const CONTRACTS = {
+  '小纳指': { unit: 20, unitCcy: 'USD', rate: 7.98, priceDiv: 1 },
+  '微纳指': { unit: 2, unitCcy: 'USD', rate: 7.98, priceDiv: 1 },
+  '恒指': { unit: 50, unitCcy: 'HKD', rate: 1.00, priceDiv: 1 },
+  '美原油': { unit: 10, unitCcy: 'USD', rate: 7.98, priceDiv: 1 },
+  '美黄金': { unit: 100, unitCcy: 'USD', rate: 7.98, priceDiv: 1 },
+  '黄金': { unit: 10, unitCcy: 'CNY', rate: 7.98, priceDiv: 1 },
+};
+
+let allData = [];
+let isUnlocked = false;
+
+function unlock() {
+  const pass = document.getElementById('lockPass').value;
+  if (pass === APP_PASS) {
+    isUnlocked = true;
+    document.getElementById('lockScreen').classList.add('hidden');
+    initFilters();
+  } else {
+    document.getElementById('lockError').textContent = '密码错误';
+  }
+}
+
+function doUnlock() {
+  const pass = document.getElementById('roomPass').value;
+  if (pass === APP_PASS) {
+    document.getElementById('statusDot').classList.add('live');
+    document.getElementById('statusTxt').textContent = '已登录';
+    document.getElementById('loginMsg').innerHTML = '<div class="msg ok">解锁成功</div>';
+  } else {
+    document.getElementById('loginMsg').innerHTML = '<div class="msg err">密码错误</div>';
+  }
+}
+
+async function httpReq(url, method, postData, headers) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method || 'GET', url, true);
+    xhr.setRequestHeader('User-Agent', 'Mozilla/5.0');
+    if (headers) {
+      Object.entries(headers).forEach(([k,v]) => xhr.setRequestHeader(k,v));
+    }
+    xhr.onload = () => resolve({ status: xhr.status, body: xhr.responseText });
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.ontimeout = () => reject(new Error('Timeout'));
+    xhr.timeout = 25000;
+    xhr.send(postData || null);
+  });
+}
+
+function parseJCPage(html) {
+  const rows = [];
+  const re = /<li>([\s\S]*?)<\/li>/g;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const li = m[1];
+    const get = re2 => { const r = li.match(re2); return r ? r[1].trim() : ''; };
+    
+    const openTime = get(/class="data2"[^>]*title="([^"]+)"/);
+    if (!openTime) continue;
+    const direction = get(/class="data3"[^>]*title="([^"]+)"/);
+    const product = get(/class="data5"[^>]*title="([^"]+)"/);
+    const rawOpen = get(/class="data6"[^>]*title="([^"]+)"/);
+    const stopLoss = get(/class="data7"[^>]*title="([^"]+)"/).replace(/\u00a0/g, ' ');
+    const takeProfit = get(/class="data8"[^>]*title="([^"]+)"/).replace(/\u00a0/g, ' ');
+    const teacher = get(/class="data9"[^>]*title="([^"]+)"/);
+    
+    let openPrice = rawOpen;
+    const rawNum = rawOpen.replace(/\D/g, '');
+    if (rawNum.length >= 8 && rawNum.length <= 14) {
+      openPrice = rawNum.substring(0, Math.ceil(rawNum.length / 2));
+    }
+    
+    if (openPrice && direction) {
+      rows.push({ openTime, direction, product, openPrice, stopLoss, takeProfit, closeTime: '', closePrice: '', profitPts: '', teacher, source: 'jc', isClosed: false });
+    }
+  }
+  return rows;
+}
+
+function parsePCPage(html) {
+  const rows = [];
+  const re = /<li>([\s\S]*?)<\/li>/g;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const li = m[1];
+    const get = re2 => { const r = li.match(re2); return r ? r[1].trim() : ''; };
+    
+    const openTime = get(/class="data2"[^>]*title="([^"]+)"/);
+    if (!openTime) continue;
+    const direction = get(/class="data3"[^>]*title="([^"]+)"/);
+    const product = get(/class="data5"[^>]*title="([^"]+)"/);
+    const rawOpen = get(/class="data6"[^>]*title="([^"]+)"/);
+    const closeTime = get(/class="data9"[^>]*title="([^"]+)"/);
+    const teacher = get(/class="data12"[^>]*title="([^"]+)"/);
+    
+    let closePrice = '';
+    const d10 = li.match(/class="data10"[\s\S]*?<\/span>/);
+    if (d10) {
+      const v = d10[0].match(/value="([^"]*)"/);
+      if (v) closePrice = v[1].trim();
+    }
+    
+    let openPrice = rawOpen;
+    const rawNum = rawOpen.replace(/\D/g, '');
+    if (rawNum.length >= 8 && rawNum.length <= 14) {
+      openPrice = rawNum.substring(0, Math.ceil(rawNum.length / 2));
+    }
+    
+    if (openPrice && direction) {
+      rows.push({ openTime, direction, product, openPrice, stopLoss: '', takeProfit: '', closeTime, closePrice, profitPts: '', teacher, source: 'pc', isClosed: true });
+    }
+  }
+  return rows;
+}
+
+async function fetchPage(page, url, parser) {
+  const fullUrl = url + (url.includes('?') ? '&' : '?') + `roomid=${ROOM_ID}&page=${page}`;
+  try {
+    const resp = await httpReq(fullUrl, 'GET');
+    if (resp.status !== 200) throw new Error('HTTP ' + resp.status);
+    return parser(resp.body);
+  } catch(e) {
+    return [];
+  }
+}
+
+async function fetchAllData() {
+  const container = document.getElementById('tableContainer');
+  container.innerHTML = '<div class="loading">正在抓取数据...</div>';
+  
+  const jcRows = [], pcRows = [];
+  
+  for (let p = 1; p <= 8; p++) {
+    const rows = await fetchPage(p, BASE + '/generalmodule/shouted/_data_start_show.asp', parseJCPage);
+    jcRows.push(...rows);
+    if (rows.length < 10) break;
+  }
+  
+  for (let p = 1; p <= 8; p++) {
+    const rows = await fetchPage(p, BASE + '/generalmodule/shouted/_Data_Ping_Show.asp', parsePCPage);
+    pcRows.push(...rows);
+    if (rows.length < 10) break;
+  }
+  
+  const jcMap = {};
+  jcRows.forEach(r => {
+    const key = r.product + '|' + r.direction + '|' + r.teacher + '|' + r.openTime;
+    jcMap[key] = r;
+  });
+  
+  allData = pcRows.map(r => {
+    const key = r.product + '|' + r.direction + '|' + r.teacher + '|' + r.openTime;
+    const jc = jcMap[key];
+    if (jc) {
+      r.stopLoss = jc.stopLoss;
+      r.takeProfit = jc.takeProfit;
+    }
+    
+    if (r.openPrice && r.closePrice) {
+      const cv = CONTRACTS[r.product] || {};
+      const div = cv.priceDiv || 1;
+      const o = parseFloat(r.openPrice) / div;
+      const c = parseFloat(r.closePrice) / div;
+      if (!isNaN(o) && !isNaN(c) && c !== 0) {
+        let pts = r.direction === '多' ? c - o : o - c;
+        r.profitPts = pts > 0 ? '+' + pts.toFixed(2) : pts.toFixed(2);
+        if (cv.unit) {
+          const amt = pts * cv.unit * cv.rate;
+          r.profitAmt = amt > 0 ? '+¥' + amt.toFixed(0) : '¥' + amt.toFixed(0);
+        } else {
+          r.profitAmt = '未知品种';
+        }
+      }
+    }
+    return r;
+  });
+  
+  renderTable(allData);
+  updateStats(allData);
+  updateFilterOptions(allData);
+}
+
+function renderTable(data) {
+  const container = document.getElementById('tableContainer');
+  if (!data.length) {
+    container.innerHTML = '<div class="empty">暂无数据</div>';
+    return;
+  }
+  
+  let html = `<table><thead><tr>
+    <th>开仓时间</th><th>方向</th><th>产品</th><th>开仓价</th>
+    <th>止损</th><th>止盈</th><th>平仓时间</th><th>平仓价</th>
+    <th>盈亏点数</th><th>盈亏金额</th><th>老师</th>
+  </tr></thead><tbody>`;
+  
+  data.forEach(r => {
+    const dirClass = r.direction === '多' ? 'up' : 'down';
+    const ptsClass = r.profitPts && parseFloat(r.profitPts) > 0 ? 'pts-pos' : (parseFloat(r.profitPts) < 0 ? 'pts-neg' : '');
+    html += `<tr>
+      <td>${r.openTime}</td>
+      <td class="${dirClass}">${r.direction}</td>
+      <td>${r.product}</td>
+      <td>${r.openPrice}</td>
+      <td>${r.stopLoss}</td>
+      <td>${r.takeProfit}</td>
+      <td>${r.closeTime}</td>
+      <td>${r.closePrice}</td>
+      <td class="${ptsClass}">${r.profitPts}</td>
+      <td class="${ptsClass}">${r.profitAmt || ''}</td>
+      <td>${r.teacher}</td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function updateStats(data) {
+  document.getElementById('statTotal').textContent = data.length;
+  
+  let win = 0, loss = 0, totalProfit = 0;
+  data.forEach(r => {
+    if (r.profitPts) {
+      const pts = parseFloat(r.profitPts);
+      if (pts > 0) win++;
+      else if (pts < 0) loss++;
+    }
+    if (r.profitAmt && r.profitAmt.includes('¥')) {
+      const amt = parseFloat(r.profitAmt.replace(/[¥+,]/g, ''));
+      if (!isNaN(amt)) totalProfit += amt;
+    }
+  });
+  
+  document.getElementById('statWin').textContent = win;
+  document.getElementById('statWinRate').textContent = data.length ? ((win/data.length)*100).toFixed(1) + '%' : '-';
+  document.getElementById('statLoss').textContent = loss;
+  document.getElementById('statProfit').textContent = (totalProfit >= 0 ? '+' : '') + '¥' + totalProfit.toFixed(0);
+  document.getElementById('statProfit').style.color = totalProfit >= 0 ? '#2ecc71' : '#e74c3c';
+}
+
+function initFilters() {
+  const teachers = [...new Set(Object.values(TEACHERS))];
+  const sel = document.getElementById('filterTeacher');
+  teachers.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t;
+    opt.textContent = t;
+    sel.appendChild(opt);
+  });
+}
+
+function updateFilterOptions(data) {
+  const products = [...new Set(data.map(r => r.product).filter(Boolean))];
+  const sel = document.getElementById('filterProduct');
+  sel.innerHTML = '<option value="">全部</option>';
+  products.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p;
+    opt.textContent = p;
+    sel.appendChild(opt);
+  });
+}
+
+function applyFilters() {
+  const start = document.getElementById('filterStart').value;
+  const end = document.getElementById('filterEnd').value;
+  const teacher = document.getElementById('filterTeacher').value;
+  const product = document.getElementById('filterProduct').value;
+  
+  let filtered = allData;
+  
+  if (start || end) {
+    filtered = filtered.filter(r => {
+      const d = r.openTime.split(' ')[0].replace(/\//g, '-');
+      if (start && d < start) return false;
+      if (end && d > end) return false;
+      return true;
+    });
+  }
+  
+  if (teacher) filtered = filtered.filter(r => r.teacher === teacher);
+  if (product) filtered = filtered.filter(r => r.product === product);
+  
+  renderTable(filtered);
+  updateStats(filtered);
+}
+
+function clearFilters() {
+  document.getElementById('filterStart').value = '';
+  document.getElementById('filterEnd').value = '';
+  document.getElementById('filterTeacher').value = '';
+  document.getElementById('filterProduct').value = '';
+  renderTable(allData);
+  updateStats(allData);
+}
+
+function exportCSV() {
+  const data = allData;
+  if (!data.length) return alert('没有数据可导出');
+  
+  const headers = ['开仓时间','方向','产品','开仓价','止损','止盈','平仓时间','平仓价','盈亏点数','盈亏金额','老师'];
+  const rows = data.map(r => [
+    r.openTime, r.direction, r.product, r.openPrice, r.stopLoss, r.takeProfit,
+    r.closeTime, r.closePrice, r.profitPts, r.profitAmt || '', r.teacher
+  ].map(v => `"${(v || '').replace(/"/g, '""')}"`).join(','));
+  
+  const csv = '\ufeff' + [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = '大粤K线数据_' + new Date().toISOString().slice(0,10) + '.csv';
+  link.click();
+}
+
+function fetchData() {
+  if (!isUnlocked) {
+    alert('请先解锁');
+    return;
+  }
+  fetchAllData();
+}
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+  initFilters();
+});
+</script>
+</body>
+</html>
