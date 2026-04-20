@@ -1,7 +1,15 @@
 node_modules/
 dist/
+dist2/
+dist3/
+dist4/
+dist-final/
+dist-pkg/
 .DS_Store
 __pycache__/
 package-lock.json
-write-main.js
-clean.ps1
+*.log
+task-summary_*
+_*.js
+_*.ps1
+_*.log

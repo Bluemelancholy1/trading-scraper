@@ -11,6 +11,7 @@ const querystring = require('querystring');
 const PORT = 3456;
 const ROOM_ID = 7000;
 const BASE = 'https://nbqh.lulutong.club';
+const APP_PASS = '881199';  // 应用访问密码
 
 const TEACHERS = {
   4421:'大元老师', 4767:'青松老师', 3814:'山野老师',
@@ -18,9 +19,29 @@ const TEACHERS = {
   3153:'大元老师', 3155:'夏美老师',
 };
 
+// 品种汇率配置
+// 汇率: 1 USD=7.98 CNY, 1 HKD=1 CNY, 1 EUR=9.1 CNY
+// 每点价值（由用户提供，2026-04-17 更新）
+// priceDiv: 原始价格需要除以该值才能还原实际价格（如美原油原始传"5900"=59.00美元，需/100）
+// unit: 每小点/整点价值（美元），用于盈亏金额计算
+const CONTRACTS = {
+  '小纳指': { unit: 20,  unitCcy: 'USD', rate: 7.98, priceDiv: 1   },  // $20/整点
+  '微纳指': { unit: 2,   unitCcy: 'USD', rate: 7.98, priceDiv: 1   },  // $2/整点
+  '恒指':   { unit: 50,  unitCcy: 'HKD', rate: 1.00, priceDiv: 1   },  // HK$50/整点
+  '美原油': { unit: 10,  unitCcy: 'USD', rate: 7.98, priceDiv: 1   },  // $10/小点，1整点=100小点=$1000
+  '美黄金': { unit: 100, unitCcy: 'USD', rate: 7.98, priceDiv: 1   },  // $100/整点
+  '黄金':   { unit: 10,  unitCcy: 'CNY', rate: 7.98, priceDiv: 1   },  // ¥10/整点
+};
+
 let roomCookie = '';
 let loginCookie = '';
+let appLoggedIn = false;   // 默认未登录，输入正确密码后解锁
+const LOGIN_PASSWORD = '881199';
 let loginTime = 0;
+
+// 内存缓存：避免短时间内重复抓取
+let cachedFetch = null;   // { key, data, ts }
+const CACHE_TTL = 5 * 60 * 1000;  // 5分钟缓存
 
 function log(type, msg) {
   const icons = {info:'i',ok:'OK',warn:'W',err:'X',data:'D'};
@@ -53,7 +74,15 @@ function httpReq(targetUrl, method, postData, extraHeaders) {
         res.on('end', () => resolve({ status: res.statusCode, body: data }));
       });
       req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
-      req.on('error', reject);
+      req.on('error', e => {
+        if (e.message.includes('ECONNREFUSED') || e.message.includes('ENOTFOUND') || e.message.includes('ETIMEDOUT')) {
+          reject(new Error('connect_fail'));
+        } else {
+          reject(e);
+        }
+      });
+      // 连接超时：8秒内无法建立连接则放弃
+      req.connectTimer = setTimeout(() => { req.destroy(); reject(new Error('connect_timeout')); }, 8000);
       if (postData) req.write(postData);
       req.end();
     } catch(e) { reject(e); }
@@ -226,25 +255,28 @@ async function fetchMerged(filters, maxPages) {
   log('ok', 'PC loaded ' + pcR.rows.length + ' rows');
   
   // 建立建仓字典：用于查找止损止盈
-  // key 策略：商品+方向+老师+开仓价（更精确匹配）
+  // 优先用开仓时间匹配，其次用商品+方向+老师+开仓价
   const jcMap = {};
   jcR.rows.forEach(r => {
-    const key = r.product + '|' + r.direction + '|' + r.teacher + '|' + r.openPrice;
-    if (!jcMap[key]) jcMap[key] = r;
+    // key1: 商品+方向+老师+开仓时间（最精确）
+    const timeKey = r.product + '|' + r.direction + '|' + r.teacher + '|' + r.openTime;
+    // key2: 商品+方向+老师+开仓价（降级匹配）
+    const priceKey = r.product + '|' + r.direction + '|' + r.teacher + '|' + r.openPrice;
+    if (!jcMap[timeKey]) jcMap[timeKey] = r;
+    if (!jcMap[priceKey]) jcMap[priceKey] = r;
   });
   
   // 合并
   const merged = pcR.rows.map(r => {
-    // 精确匹配：商品+方向+老师+开仓价
-    let key = r.product + '|' + r.direction + '|' + r.teacher + '|' + r.openPrice;
+    // 优先精确匹配：商品+方向+老师+开仓时间
+    let key = r.product + '|' + r.direction + '|' + r.teacher + '|' + r.openTime;
     let jc = jcMap[key];
-    // 降级匹配：商品+方向+老师
+    // 降级匹配：商品+方向+老师+开仓价
     if (!jc) {
-      key = r.product + '|' + r.direction + '|' + r.teacher;
-      for (const [k, v] of Object.entries(jcMap)) {
-        if (k.startsWith(key) && !jcMap[k + '|' + r.openPrice]) { jc = v; break; }
-      }
+      key = r.product + '|' + r.direction + '|' + r.teacher + '|' + r.openPrice;
+      jc = jcMap[key];
     }
+    // 再降级：商品+方向+老师
     if (!jc) {
       key = r.product + '|' + r.direction + '|' + r.teacher;
       jc = jcMap[Object.keys(jcMap).find(k => k.startsWith(key))];
@@ -253,21 +285,56 @@ async function fetchMerged(filters, maxPages) {
       r.stopLoss   = jc.stopLoss;
       r.takeProfit = jc.takeProfit;
     }
-    // 计算获利点数
+    // 计算获利点数 & 盈亏金额(¥)
+    // pts: 原始价格差值（美原油=小点数×1，其他=整点×priceDiv）
+    // unit: 每小点/整点的美元/HKD价值
     if (r.openPrice && r.closePrice) {
-      const o = parseFloat(r.openPrice);
-      const c = parseFloat(r.closePrice);
+      const cv = CONTRACTS[r.product] || {};
+      const div = cv.priceDiv || 1;
+      const o = parseFloat(r.openPrice) / div;
+      const c = parseFloat(r.closePrice) / div;
       if (!isNaN(o) && !isNaN(c) && c !== 0) {
         let pts = 0;
         if (r.direction === '多') pts = c - o;
         else if (r.direction === '空') pts = o - c;
         r.profitPts = pts > 0 ? '+' + pts.toFixed(2) : pts.toFixed(2);
+
+        // 盈亏金额 = 点数 × unit × 汇率，转人民币
+        if (cv.unit) {
+          const amount = pts * cv.unit * cv.rate;
+          r.profitAmt = amount > 0 ? '+¥' + amount.toFixed(0) : '¥' + amount.toFixed(0);
+        } else {
+          // 未知品种：标记点数但无法算金额
+          r.profitAmt = '未知品种';
+        }
       }
     }
     return r;
   });
   
-  return { rows: merged, totalRows: pcR.totalRows, mode: 'merged' };
+  // --- 服务端日期过滤（真正按开仓时间过滤，ASP的pt参数无效，改用Node.js过滤） ---
+  // 标准化日期：统一成 YYYY-MM-DD 格式再比较（处理 ASP 返回的 2026/4/17 和前端传来的 2026-04-17）
+  function normDate(str) {
+    // 输入如 "2026/4/17" 或 "2026/04/17" → 输出 "2026-04-17"
+    const parts = str.split('/');
+    return parts[0] + '-' + String(parts[1]).padStart(2, '0') + '-' + String(parts[2]).padStart(2, '0');
+  }
+  let filtered = merged;
+  if (filters) {
+    if (filters.pt || filters.et) {
+      const fPt = filters.pt ? normDate(filters.pt) : null;
+      const fEt = filters.et ? normDate(filters.et) : null;
+      filtered = merged.filter(row => {
+        const d = normDate(row.openTime.split(' ')[0]);
+        if (fPt && d < fPt) return false;
+        if (fEt && d > fEt) return false;
+        return true;
+      });
+      log('info', `Date filter: ${fPt || '*'} ~ ${fEt || '*'} → ${filtered.length} rows (from ${merged.length})`);
+    }
+  }
+
+  return { rows: filtered, totalRows: filtered.length, mode: 'merged' };
 }
 
 // --- HTTP Server ---
@@ -297,7 +364,7 @@ const server = http.createServer((req, res) => {
 
     if (urlPath === '/status') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ loggedIn: !!(roomCookie || loginCookie) }));
+      res.end(JSON.stringify({ loggedIn: !!(roomCookie || loginCookie), appReady: appLoggedIn }));
       return;
     }
     if (urlPath === '/teachers') {
@@ -306,6 +373,37 @@ const server = http.createServer((req, res) => {
       return;
     }
 
+    // POST /unlock — 独立密码验证（不调ASP，纯本地比对）
+    if (urlPath === '/unlock' && req.method === 'POST') {
+      let body = '';
+      req.on('data', c => { body += c; });
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body || '{}');
+          if (data.password === APP_PASS) {
+            appLoggedIn = true;
+            loginTime = Date.now();
+            log('info', 'App unlocked via /unlock');
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true }));
+          } else {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: '密码错误' }));
+          }
+        } catch(e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: '请求格式错误' }));
+        }
+      });
+      return;
+    }
+    // GET /lock — 锁屏
+    if (urlPath === '/lock' && req.method === 'GET') {
+      appLoggedIn = false;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
     // POST /login
     if (urlPath === '/login') {
       let body = '';
@@ -313,9 +411,29 @@ const server = http.createServer((req, res) => {
       req.on('end', async () => {
         try {
           const data = JSON.parse(body || '{}');
-          const ok = await login(data.password || '881199', data.phone, data.pass);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok, room: !!roomCookie, user: !!loginCookie }));
+          // 应用层密码验证（支持两种方式：传正确密码 或 已验证状态）
+          if (data.appPass !== APP_PASS && !appLoggedIn) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, appError: true, error: '密码错误，请重新输入' }));
+            return;
+          }
+          // 密码正确或已验证，标记为已验证
+          appLoggedIn = true;
+          // 如果之前已有有效 session，跳过 ASP 登录（避免重复连接）
+          if (roomCookie && loginCookie) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, room: true, user: true, skipAsp: true }));
+            return;
+          }
+          // 否则尝试 ASP 登录
+          try {
+            const ok = await login(data.password || '881199', data.phone, data.pass);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok, room: !!roomCookie, user: !!loginCookie }));
+          } catch(e) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, aspError: true, error: e.message }));
+          }
         } catch(e) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: false, error: e.message }));
@@ -330,12 +448,26 @@ const server = http.createServer((req, res) => {
       req.on('data', c => { body += c; });
       req.on('end', async () => {
         try {
+          if (!appLoggedIn) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, authError: true, error: '请先验证应用密码' }));
+            return;
+          }
           if (!roomCookie) throw new Error('Not logged in. POST /login first.');
           const opts = JSON.parse(body || '{}');
           const { mode = 'merged' } = opts;
           
+          // 缓存检查：5分钟内相同请求直接返回
+          const maxPages = Math.min(opts.pages || 8, 50);
+          const cacheKey = `${mode}|${maxPages}|${JSON.stringify(opts.filters || {})}`;
+          if (cachedFetch && cachedFetch.key === cacheKey && Date.now() - cachedFetch.ts < CACHE_TTL) {
+            log('info', 'Cache hit (' + Math.round((CACHE_TTL - (Date.now() - cachedFetch.ts)) / 1000) + 's left)');
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, mode, ...cachedFetch.data, cached: true }));
+            return;
+          }
+          
           let result;
-          const maxPages = Math.min(opts.pages || 8, 50); // 默认8页=80条，上限50页
           if (mode === 'merged') {
             result = await fetchMerged(opts.filters || {}, maxPages);
           } else if (mode === 'pc') {
@@ -343,6 +475,9 @@ const server = http.createServer((req, res) => {
           } else {
             result = await fetchPages(maxPages, BASE + '/generalmodule/shouted/_data_start_show.asp', parseJCPage, opts.filters || {});
           }
+          
+          // 存缓存
+          cachedFetch = { key: cacheKey, data: result, ts: Date.now() };
           
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, mode, ...result }));

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
@@ -24,15 +24,15 @@ body{font-family:'Microsoft YaHei',sans-serif;background:#0f1117;color:#e0e0e0;m
 .login-row input{padding:10px 14px;background:#252838;border:1px solid #333;border-radius:8px;color:#e0e0e0;font-size:14px}
 .login-row input:focus{outline:none;border-color:#f0c040}
 .login-row input[type=password]{font-family:monospace;letter-spacing:2px}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:#f0c040;color:#111;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:bold;transition:.2s}
-.btn:hover{background:#f5d060}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:#f0c040;color:#0f1117;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:bold;transition:.2s;box-shadow:0 0 0 0 rgba(240,192,64,.4)}
+.btn:hover{background:#f5d060;box-shadow:0 0 12px rgba(240,192,64,.35)}
 .btn:active{transform:scale(.97)}
 .btn.green{background:#2ecc71;color:#fff}
-.btn.green:hover{background:#3ddb80}
+.btn.green:hover{background:#27ae60}
 .btn.red{background:#e74c3c;color:#fff}
-.btn.red:hover{background:#ec6a5e}
-.btn.gray{background:#333;color:#aaa}
-.btn.gray:hover{background:#444}
+.btn.red:hover{background:#c0392b}
+.btn.gray{background:#252838;color:#888}
+.btn.gray:hover{background:#333}
 .btn.small{padding:6px 14px;font-size:13px}
 .msg{padding:8px 12px;border-radius:6px;font-size:13px;margin-top:10px}
 .msg.err{background:rgba(231,76,60,.15);border:1px solid #e74c3c;color:#e74c3c}
@@ -62,7 +62,7 @@ body{font-family:'Microsoft YaHei',sans-serif;background:#0f1117;color:#e0e0e0;m
 .toolbar{display:flex;gap:8px;padding:14px 16px;border-bottom:1px solid #252838;flex-wrap:wrap;align-items:center}
 .toolbar span{font-size:13px;color:#666;margin-left:auto}
 table{width:100%;border-collapse:collapse;font-size:13px}
-thead th{background:#252838;padding:12px 10px;text-align:left;font-size:12px;color:#888;white-space:nowrap;position:sticky;top:0;z-index:2}
+thead th{background:#1e2130;padding:12px 10px;text-align:left;font-size:12px;color:#888;white-space:nowrap;position:sticky;top:0;z-index:2}
 tbody tr{border-bottom:1px solid #1e2130;transition:background .15s}
 tbody tr:hover{background:#252838}
 tbody td{padding:10px 10px;vertical-align:middle;white-space:nowrap}
@@ -70,9 +70,9 @@ tbody td .dir{font-weight:bold}
 tbody td .dir.空{color:#e74c3c}
 tbody td .dir.多{color:#2ecc71}
 tbody td .price{font-family:monospace;font-size:13px}
-tbody td .teacher-tag{display:inline-block;padding:2px 8px;background:#252838;border-radius:4px;font-size:12px;color:#aaa}
+tbody td .teacher-tag{display:inline-block;padding:2px 8px;background:#252838;border-radius:4px;font-size:12px;color:#888}
 tbody td .closed-badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;background:rgba(46,204,113,.15);color:#2ecc71}
-tbody td .open-badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;background:rgba(241,196,64,.15);color:#f0c040}
+tbody td .open-badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;background:rgba(240,192,64,.15);color:#f0c040}
 tbody td .sl{font-family:monospace;color:#e74c3c;font-size:12px}
 tbody td .tp{font-family:monospace;color:#2ecc71;font-size:12px}
 tbody td .profit{font-family:monospace;font-weight:bold}
@@ -81,14 +81,72 @@ tbody td .profit.neg{color:#e74c3c}
 .pager{display:flex;gap:8px;padding:14px 16px;border-top:1px solid #252838;align-items:center;flex-wrap:wrap}
 .pager button{padding:7px 14px;background:#252838;border:1px solid #333;color:#e0e0e0;border-radius:6px;cursor:pointer;font-size:13px}
 .pager button:hover{background:#333}
-.pager button.active{background:#f0c040;color:#111;border-color:#f0c040}
+.pager button.active{background:#f0c040;color:#0f1117;border-color:#f0c040}
 .pager span{font-size:13px;color:#666;margin-left:auto}
 
 /* Sidebar fields */
-.field-tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;background:#333;color:#888}
+.field-tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;background:#252838;color:#666}
+
+/* Teacher Summary */
+.teacher-summary{background:#1a1d2e;border-radius:12px;padding:20px;margin-bottom:16px;display:none}
+.teacher-summary h2{font-size:14px;margin-bottom:14px;color:#888}
+.teacher-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.t-card{background:#252838;border-radius:8px;padding:14px;border-left:3px solid #f0c040}
+.t-card .t-name{font-size:15px;font-weight:bold;color:#f0c040;margin-bottom:8px}
+.t-card .t-row{display:flex;justify-content:space-between;font-size:12px;color:#888;padding:2px 0}
+.t-card .t-row .t-val{color:#e0e0e0;font-family:monospace}
+.t-card .t-row .t-val.win{color:#2ecc71}
+.t-card .t-row .t-val.lose{color:#e74c3c}
+.t-card .t-row .t-val.rate{color:#3498db}
+.t-card .t-winrate{margin-top:8px;height:4px;background:#1e2130;border-radius:2px;overflow:hidden}
+.t-card .t-winrate div{height:100%;background:#2ecc71;border-radius:2px;transition:width .3s}
+
+/* Lock Screen */
+.screen-lock{position:fixed;inset:0;background:#0f1117;display:flex;align-items:center;justify-content:center;z-index:999}
+.screen-lock.hidden{display:none}
+.lock-card{background:#1a1d2e;border-radius:16px;padding:40px 48px;width:360px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.lock-icon{font-size:48px;margin-bottom:16px}
+.lock-title{font-size:22px;color:#f0c040;font-weight:bold;margin-bottom:6px}
+.lock-sub{font-size:13px;color:#666;margin-bottom:28px}
+.lock-input{width:100%;padding:14px 18px;background:#252838;border:2px solid #333;border-radius:10px;color:#e0e0e0;font-size:16px;text-align:center;letter-spacing:4px;margin-bottom:16px;box-sizing:border-box}
+.lock-input:focus{outline:none;border-color:#f0c040}
+.lock-btn{width:100%;padding:14px;background:#f0c040;color:#0f1117;border:none;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer;transition:.2s}
+.lock-btn:hover{background:#f5d060}
+.lock-btn:active{transform:scale(.98)}
+.lock-error{color:#e74c3c;font-size:13px;margin-top:12px;min-height:20px}
+
+/* Auto Refresh */
+.autorefresh{display:flex;align-items:center;gap:8px;font-size:13px;color:#888}
+.autorefresh select{padding:4px 8px;background:#252838;border:1px solid #333;border-radius:4px;color:#e0e0e0;font-size:12px}
+.autorefresh select option{background:#1a1d2e}
+.autorefresh .toggle{width:36px;height:20px;background:#333;border-radius:10px;cursor:pointer;position:relative;transition:background .2s}
+.autorefresh .toggle.on{background:#2ecc71}
+.autorefresh .toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s}
+.autorefresh .toggle.on::after{transform:translateX(16px)}
+.autorefresh .countdown{font-family:monospace;font-size:12px;color:#666;min-width:32px}
+
 </style>
 </head>
 <body>
+
+<!-- ================================================ -->
+<!-- 锁屏界面 -->
+<!-- ================================================ -->
+<div class="screen-lock" id="screenLock">
+  <div class="lock-card">
+    <div class="lock-icon">🔐</div>
+    <div class="lock-title">大粤K线 · 数据查看</div>
+    <div class="lock-sub">输入密码解锁</div>
+    <input type="password" class="lock-input" id="lockInput" placeholder="请输入密码" maxlength="20" autocomplete="off">
+    <button class="lock-btn" id="lockBtn">解锁</button>
+    <div class="lock-error" id="lockError"></div>
+  </div>
+</div>
+
+<!-- ================================================ -->
+<!-- 数据界面 -->
+<!-- ================================================ -->
+<div id="screenData" style="display:none">
 <div class="wrap">
 
   <!-- Header -->
@@ -96,25 +154,24 @@ tbody td .profit.neg{color:#e74c3c}
     <h1>📊 大粤K线 · 建仓/平仓数据</h1>
     <span class="badge">房间 7000</span>
     <span class="badge" id="modeBadge">建仓提醒</span>
-    <div id="connStatus" style="margin-left:auto;display:flex;align-items:center;gap:6px">
-      <div class="status-dot" id="statusDot"></div>
-      <span id="statusTxt" style="font-size:13px;color:#888">未连接</span>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+      <button class="btn small gray" id="btnLock" title="锁屏">🔒 锁屏</button>
+      <div class="autorefresh">
+        <span>自动刷新</span>
+        <div class="toggle" id="arToggle" title="开关自动刷新"></div>
+        <select id="arInterval" title="刷新间隔">
+          <option value="1">1分钟</option>
+          <option value="3">3分钟</option>
+          <option value="5" selected>5分钟</option>
+          <option value="10">10分钟</option>
+        </select>
+        <span class="countdown" id="arCountdown"></span>
+      </div>
+      <div id="connStatus" style="display:flex;align-items:center;gap:6px">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusTxt" style="font-size:13px;color:#888">未连接</span>
+      </div>
     </div>
-  </div>
-
-  <!-- Login -->
-  <div class="login-panel" id="loginPanel">
-    <h2>🔑 登录</h2>
-    <div class="login-row">
-      <input type="password" id="fRoomPwd" placeholder="房间密码（默认：881199）" value="881199">
-      <input type="text" id="fPhone" placeholder="手机号（可选）" value="16616135917">
-      <input type="password" id="fPass" placeholder="账号密码（可选）" value="135917">
-    </div>
-    <div class="login-row">
-      <button class="btn green" id="btnLoginFull">🔓 登录并加载数据</button>
-      <span style="font-size:12px;color:#666;padding:10px">（账号登录后可查看完整止损/止盈/获利点数）</span>
-    </div>
-    <div id="loginMsg"></div>
   </div>
 
   <!-- Stats -->
@@ -161,6 +218,13 @@ tbody td .profit.neg{color:#e74c3c}
       <button class="btn small green" id="btnExport">💾 导出 CSV</button>
     </div>
   </div>
+
+  <!-- Teacher Summary -->
+  <div class="teacher-summary" id="teacherSummary">
+    <h2>👨‍🏫 老师盈亏汇总</h2>
+    <div class="teacher-cards" id="teacherCards"></div>
+  </div>
+
 
   <!-- Data Table -->
   <div class="table-wrap" id="tableArea" style="display:none">
@@ -209,6 +273,7 @@ const COLS = [
   {key:'closeTime', label:'平仓时间',  w:'160'},
   {key:'closePrice',label:'平仓点位',  w:'100'},
   {key:'profitPts', label:'获利点数',  w:'90',  cls:'profit'},
+  {key:'profitAmt', label:'盈亏金额',  w:'90',  cls:'profit'},
   {key:'teacher',   label:'老师',      w:'90'},
   {key:'status',    label:'状态',      w:'70'},
 ];
@@ -254,6 +319,11 @@ function renderTable(rows) {
       if (c.key === 'profitPts') {
         if (!val) return '<td><span class="field-tag">未平仓</span></td>';
         const isNeg = parseFloat(val) < 0;
+        return `<td><span class="profit ${isNeg ? 'neg' : 'pos'}">${val}</span></td>`;
+      }
+      if (c.key === 'profitAmt') {
+        if (!val) return '<td></td>';
+        const isNeg = val.startsWith('¥') && !val.startsWith('+');
         return `<td><span class="profit ${isNeg ? 'neg' : 'pos'}">${val}</span></td>`;
       }
       if (c.key === 'teacher') {
@@ -317,11 +387,13 @@ function applyFilters() {
   
   filteredRows = allRows.filter(row => {
     if (startDate) {
-      const d = row.openTime.split(' ')[0].replace(/\//g,'-');
+      const parts = row.openTime.split(' ')[0].split('/');
+      const d = parts[0] + '-' + String(parts[1]).padStart(2, '0') + '-' + String(parts[2]).padStart(2, '0');
       if (d < startDate) return false;
     }
     if (endDate) {
-      const d = row.openTime.split(' ')[0].replace(/\//g,'-');
+      const parts = row.openTime.split(' ')[0].split('/');
+      const d = parts[0] + '-' + String(parts[1]).padStart(2, '0') + '-' + String(parts[2]).padStart(2, '0');
       if (d > endDate) return false;
     }
     if (teacher && row.teacher !== teacher) return false;
@@ -334,54 +406,42 @@ function applyFilters() {
   renderTable(filteredRows);
   renderPager(filteredRows);
   updateStats(filteredRows);
+  updateTeacherSummary(filteredRows);
 }
 
-// Login
-function showMsg(id, html, type) {
-  const el = document.getElementById(id);
-  el.innerHTML = `<div class="msg ${type}">${html}</div>`;
-  setTimeout(() => { el.innerHTML = ''; }, 4000);
-}
-
-function updateStatus(loggedIn) {
-  const dot = document.getElementById('statusDot');
-  const txt = document.getElementById('statusTxt');
-  if (loggedIn) {
-    dot.classList.add('live');
-    txt.textContent = '已登录';
-    document.getElementById('filtersArea').style.display = 'block';
-    document.getElementById('statsArea').style.display = 'grid';
-  } else {
-    dot.classList.remove('live');
-    txt.textContent = '未登录';
-    document.getElementById('filtersArea').style.display = 'none';
-    document.getElementById('statsArea').style.display = 'none';
+// 自动登录 ASP（无需密码）
+async function autoLogin() {
+  try {
+    const r = await api('/login', 'POST', {
+      password: '881199',
+      phone: '16616135917',
+      pass: '135917',
+    });
+    if (r.ok) {
+      document.getElementById('statusDot').classList.add('live');
+      document.getElementById('statusTxt').textContent = '已登录';
+      return true;
+    }
+    document.getElementById('statusTxt').textContent = '登录失败';
+    return false;
+  } catch(e) {
+    document.getElementById('statusTxt').textContent = '连接失败';
+    return false;
   }
 }
 
-async function doLogin() {
-  const pwd = document.getElementById('fRoomPwd').value;
-  const phone = document.getElementById('fPhone').value;
-  const pass = document.getElementById('fPass').value;
-  const btn = document.getElementById('btnLoginFull');
-  btn.textContent = '⏳ 登录中...';
-  btn.disabled = true;
+// 检查后端连接状态
+async function checkStatus() {
   try {
-    const r = await api('/login', 'POST', { password: pwd, phone, pass });
-    if (r.ok) {
-      updateStatus(true);
-      showMsg('loginMsg', '登录成功！正在抓取数据...', 'ok');
-      document.getElementById('tableArea').style.display = 'block';
-      renderHead(currentCols());
-      await doFetch(false);
-    } else {
-      showMsg('loginMsg', '登录失败：' + (r.error || '未知错误'), 'err');
+    const r = await api('/status');
+    if (r.loggedIn) {
+      document.getElementById('statusDot').classList.add('live');
+      document.getElementById('statusTxt').textContent = '已登录';
+      return true;
     }
+    return false;
   } catch(e) {
-    showMsg('loginMsg', '请求错误：' + e.message, 'err');
-  } finally {
-    btn.textContent = '🔓 登录并加载数据';
-    btn.disabled = false;
+    return false;
   }
 }
 
@@ -431,10 +491,13 @@ async function doFetch(all) {
     renderTable(filteredRows);
     renderPager(filteredRows);
     updateStats(filteredRows);
+    updateTeacherSummary(filteredRows);
     
+    document.getElementById('statsArea').style.display = 'grid';
+    document.getElementById('filtersArea').style.display = 'block';
     document.getElementById('tableArea').style.display = 'block';
     const badge = document.getElementById('modeBadge');
-    badge.textContent = currentMode === 'jc' ? '建仓提醒（含止损止盈）' : '平仓提醒（含平仓价）';
+    badge.textContent = currentMode === 'jc' ? '建仓提醒（含止损止盈）' : currentMode === 'pc' ? '平仓提醒（含平仓价）' : '合并模式';
     
   } catch(e) {
     alert('抓取失败：' + e.message);
@@ -469,7 +532,6 @@ function exportCSV() {
 }
 
 // Events
-document.getElementById('btnLoginFull').onclick = doLogin;
 document.getElementById('btnFetch').onclick = () => doFetch(false);
 document.getElementById('btnFetchAll').onclick = () => doFetch(true);
 document.getElementById('btnExport').onclick = exportCSV;
@@ -494,32 +556,177 @@ document.getElementById('btnMode').onclick = () => {
   updateStats([]);
 };
 
+// Auto Refresh events
+document.getElementById('arToggle').onclick = function() {
+  if (this.classList.contains('on')) stopAutoRefresh();
+  else startAutoRefresh();
+};
+document.getElementById('arInterval').onchange = function() {
+  if (document.getElementById('arToggle').classList.contains('on')) startAutoRefresh();
+};
+
 // Filter on change
 ['fStart','fEnd','fTeacher','fDir','fProduct'].forEach(id => {
   document.getElementById(id).oninput = applyFilters;
   document.getElementById(id).onchange = applyFilters;
 });
 
+// Teacher Summary
+function updateTeacherSummary(rows) {
+  const teacherMap = {};
+  rows.forEach(r => {
+    if (!r.teacher) return;
+    if (!teacherMap[r.teacher]) {
+      teacherMap[r.teacher] = { name: r.teacher, total: 0, wins: 0, losses: 0, open: 0, profitAmt: 0, winAmt: 0, lossAmt: 0 };
+    }
+    const t = teacherMap[r.teacher];
+    t.total++;
+    if (r.isClosed && r.profitPts) {
+      const pts = parseFloat(r.profitPts);
+      if (pts > 0) { t.wins++; t.winAmt += pts; }
+      else if (pts < 0) { t.losses++; t.lossAmt += Math.abs(pts); }
+      // 累计盈亏金额（直接解析数字，¥-750 → -750，+¥1200 → 1200）
+      if (r.profitAmt && r.profitAmt !== '未知品种') {
+        const amt = parseFloat(r.profitAmt.replace(/[¥+,]/g, ''));
+        if (!isNaN(amt)) {
+          t.profitAmt += amt;
+        }
+      }
+    } else if (!r.isClosed) {
+      t.open++;
+    }
+  });
+
+  const container = document.getElementById('teacherCards');
+  const teachers = Object.values(teacherMap).sort((a, b) => b.profitAmt - a.profitAmt);
+  
+  if (teachers.length === 0) {
+    document.getElementById('teacherSummary').style.display = 'none';
+    return;
+  }
+  
+  document.getElementById('teacherSummary').style.display = 'block';
+  container.innerHTML = teachers.map(t => {
+    const closed = t.wins + t.losses;
+    const winRate = closed > 0 ? (t.wins / closed * 100).toFixed(1) : '-';
+    const amtStr = t.profitAmt >= 0 ? `+${t.profitAmt.toFixed(0)}` : t.profitAmt.toFixed(0);
+    const amtClass = t.profitAmt >= 0 ? 'win' : 'lose';
+    const barWidth = closed > 0 ? (t.wins / closed * 100) : 0;
+    // 盈亏比：平均盈利÷平均亏损
+    const avgWin = t.wins > 0 ? t.winAmt / t.wins : 0;
+    const avgLoss = t.losses > 0 ? t.lossAmt / t.losses : 0;
+    const rr = avgLoss > 0 ? (avgWin / avgLoss).toFixed(1) : t.wins > 0 ? '∞' : '-';
+    return `<div class="t-card">
+      <div class="t-name">${t.name}</div>
+      <div class="t-row"><span>总喊单</span><span class="t-val">${t.total}</span></div>
+      <div class="t-row"><span>盈利</span><span class="t-val win">${t.wins}</span></div>
+      <div class="t-row"><span>亏损</span><span class="t-val lose">${t.losses}</span></div>
+      <div class="t-row"><span>持仓中</span><span class="t-val">${t.open}</span></div>
+      <div class="t-row"><span>胜率</span><span class="t-val rate">${winRate}%</span></div>
+      <div class="t-row"><span>盈亏比</span><span class="t-val rate">${rr}</span></div>
+      <div class="t-row"><span>总盈亏</span><span class="t-val ${amtClass}">¥${amtStr}</span></div>
+      <div class="t-winrate"><div style="width:${barWidth}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// Auto Refresh Logic
+let arTimer = null;
+let arCountdownTimer = null;
+let arSecondsLeft = 0;
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  const min = parseInt(document.getElementById('arInterval').value);
+  arSecondsLeft = min * 60;
+  arTimer = setInterval(() => {
+    allRows = [];  // force re-fetch
+    doFetch(true);
+    arSecondsLeft = min * 60;
+  }, min * 60 * 1000);
+  arCountdownTimer = setInterval(() => {
+    arSecondsLeft--;
+    if (arSecondsLeft < 0) arSecondsLeft = parseInt(document.getElementById('arInterval').value) * 60;
+    const m = Math.floor(arSecondsLeft / 60);
+    const s = arSecondsLeft % 60;
+    document.getElementById('arCountdown').textContent = `${m}:${String(s).padStart(2, '0')}`;
+  }, 1000);
+  document.getElementById('arToggle').classList.add('on');
+  document.getElementById('arCountdown').textContent = `${min}:00`;
+}
+
+function stopAutoRefresh() {
+  if (arTimer) { clearInterval(arTimer); arTimer = null; }
+  if (arCountdownTimer) { clearInterval(arCountdownTimer); arCountdownTimer = null; }
+  document.getElementById('arToggle').classList.remove('on');
+  document.getElementById('arCountdown').textContent = '';
+  arSecondsLeft = 0;
+}
+
 // Init
-function init() {
+async function init() {
   const today = new Date().toISOString().slice(0, 10);
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
   document.getElementById('fEnd').value = today;
   document.getElementById('fStart').value = weekAgo;
-  
+
   renderHead(currentCols());
   loadTeachers();
-  
-  // Check login status
-  api('/status').then(r => {
-    if (r.loggedIn) {
-      updateStatus(true);
-      document.getElementById('tableArea').style.display = 'block';
-    }
-  }).catch(() => {});
+
+  // 检查后端登录状态，同时检查 appReady（密码锁）
+  const r = await api('/status');
+  if (r.appReady) {
+    showDataScreen();
+    if (!r.loggedIn) await autoLogin();
+    await doFetch(false);
+  } else {
+    showLockScreen();
+  }
 }
 
+// 锁屏 JS
+document.getElementById('lockBtn').onclick = doUnlock;
+document.getElementById('lockInput').onkeydown = e => { if (e.key === 'Enter') doUnlock(); };
+
+async function doUnlock() {
+  const pw = document.getElementById('lockInput').value;
+  if (!pw) { document.getElementById('lockError').textContent = '请输入密码'; return; }
+  try {
+    const r = await api('/unlock', 'POST', { password: pw });
+    if (r.ok) {
+      document.getElementById('lockInput').value = '';
+      document.getElementById('lockError').textContent = '';
+      showDataScreen();
+      await autoLogin();
+      await doFetch(false);
+    } else {
+      document.getElementById('lockError').textContent = r.error || '密码错误';
+    }
+  } catch(e) {
+    document.getElementById('lockError').textContent = '连接失败，请确认服务已启动';
+  }
+}
+
+function showLockScreen() {
+  document.getElementById('screenLock').classList.remove('hidden');
+  document.getElementById('screenData').style.display = 'none';
+  document.getElementById('lockInput').focus();
+}
+
+function showDataScreen() {
+  document.getElementById('screenLock').classList.add('hidden');
+  document.getElementById('screenData').style.display = '';
+}
+
+document.getElementById('btnLock').onclick = async () => {
+  await api('/lock', 'GET');
+  showLockScreen();
+};
+
+// 自动启动
 init();
+
 </script>
+</div><!-- end #screenData -->
 </body>
 </html>
