@@ -8,10 +8,10 @@ const fs = require('fs');
 const path = require('path');
 const querystring = require('querystring');
 
-const PORT = 3456;
+const PORT = process.env.PORT || 3456;
 const ROOM_ID = 7000;
 const BASE = 'https://nbqh.lulutong.club';
-const APP_PASS = '881199';  // 应用访问密码
+const APP_PASS = process.env.APP_PASS || '881199';  // 应用访问密码
 
 const TEACHERS = {
   4421:'大元老师', 4767:'青松老师', 3814:'山野老师',

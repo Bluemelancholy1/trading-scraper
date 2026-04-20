@@ -3,47 +3,8 @@
   "version": "1.0.1",
   "description": "交易数据抓取工具",
   "author": "陈少",
-  "main": "main.js",
+  "main": "proxy-server.js",
   "scripts": {
     "start": "node proxy-server.js"
-  },
-  "devDependencies": {
-    "electron": "41.2.1"
-  },
-  "dependencies": {
-    "electron-log": "^5.4.3"
-  },
-  "build": {
-    "appId": "com.trading.scraper",
-    "productName": "交易数据抓取工具",
-    "directories": {
-      "output": "dist4"
-    },
-    "files": [
-      "main.js",
-      "index.html",
-      "proxy-server.js",
-      "package.json",
-      "node_modules/electron-log/**/*"
-    ],
-    "asar": true,
-    "asarUnpack": [
-      "node_modules/electron-log/**/*"
-    ],
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": ["x64"]
-        }
-      ],
-      "signAndEditExecutable": false
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true
-    },
-    "publish": null
   }
 }
