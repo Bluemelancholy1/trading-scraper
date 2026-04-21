@@ -11,7 +11,7 @@ const querystring = require('querystring');
 const PORT = 3456;
 const ROOM_ID = 7000;
 const BASE = 'https://nbqh.lulutong.club';
-let APP_PASS = '881199';  // 应用访问密码（可被远程配置覆盖）
+let APP_PASS = '414102';  // 应用访问密码（可被远程配置覆盖）
 
 const TEACHERS = {
   4421:'大元老师', 4767:'青松老师', 3814:'山野老师',
