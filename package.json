@@ -1,17 +1,20 @@
 {
   "name": "trading-scraper",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "交易数据抓取工具",
   "author": "陈少",
   "main": "main.js",
   "scripts": {
-    "start": "node proxy-server.js"
+    "start": "node proxy-server.js",
+    "build": "electron-builder --win",
+    "publish": "electron-builder --win --publish always"
   },
   "devDependencies": {
     "electron": "41.2.1"
   },
   "dependencies": {
-    "electron-log": "^5.4.3"
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.3.9"
   },
   "build": {
     "appId": "com.trading.scraper",
@@ -21,14 +24,17 @@
     },
     "files": [
       "main.js",
+      "preload.js",
       "index.html",
       "proxy-server.js",
       "package.json",
-      "node_modules/electron-log/**/*"
+      "node_modules/electron-log/**/*",
+      "node_modules/electron-updater/**/*"
     ],
     "asar": true,
     "asarUnpack": [
-      "node_modules/electron-log/**/*"
+      "node_modules/electron-log/**/*",
+      "node_modules/electron-updater/**/*"
     ],
     "win": {
       "target": [
@@ -44,6 +50,11 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true
     },
-    "publish": null
+    "publish": {
+      "provider": "github",
+      "owner": "Bluemelancholy1",
+      "repo": "trading-scraper",
+      "releaseType": "release"
+    }
   }
 }

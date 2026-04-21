@@ -140,8 +140,11 @@ tbody td .profit.neg{color:#e74c3c}
 <div id="screenData" style="display:none">
 <div class="wrap">
 
-  <!-- 远程公告 -->
-  <div id="remoteBanner"></div>
+  <!-- 更新提示栏 -->
+  <div id="updateBar" class="banner info" style="display:none;margin-bottom:16px">
+    <span id="updateMsg"></span>
+    <button class="btn small green" id="btnInstall" style="margin-left:16px;display:none" onclick="doInstallUpdate()">安装更新并重启</button>
+  </div>
 
   <!-- Header -->
   <div class="header">
@@ -663,6 +666,47 @@ document.getElementById('btnMode').onclick = function() {
   updateStats([]);
   updateTeacherSummary([]);
 };
+
+// === Auto Update ===
+let pendingVersion = null;
+
+function doInstallUpdate() {
+  if (window.electronAPI) window.electronAPI.installUpdate();
+}
+
+if (window.electronAPI) {
+  window.electronAPI.onUpdateStatus((data) => {
+    const bar = document.getElementById('updateBar');
+    const msg = document.getElementById('updateMsg');
+    const btn = document.getElementById('btnInstall');
+    if (!bar || !msg) return;
+
+    if (data.status === 'available') {
+      bar.style.display = 'flex';
+      bar.className = 'banner info';
+      msg.textContent = `🆕 发现新版本 v${data.version}，正在后台下载...`;
+      btn.style.display = 'none';
+      pendingVersion = data.version;
+    } else if (data.status === 'downloading') {
+      bar.style.display = 'flex';
+      bar.className = 'banner info';
+      msg.textContent = `📥 正在下载更新... ${data.progress}%`;
+      btn.style.display = 'none';
+    } else if (data.status === 'ready') {
+      bar.style.display = 'flex';
+      bar.className = 'banner info';
+      msg.textContent = `✅ 新版本 v${data.version} 下载完成！`;
+      btn.style.display = 'inline-flex';
+    } else if (data.status === 'error') {
+      bar.style.display = 'flex';
+      bar.className = 'banner warn';
+      msg.textContent = `⚠️ 更新检查失败：${data.error}`;
+      btn.style.display = 'none';
+    } else if (data.status === 'up-to-date') {
+      bar.style.display = 'none';
+    }
+  });
+}
 
 init();
 </script>
