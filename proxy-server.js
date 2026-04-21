@@ -1,4 +1,4 @@
-// DayueKX Proxy Server v3 - 建仓提醒 + 平仓提醒 + 合并模式
+﻿// DayueKX Proxy Server v3 - 建仓提醒 + 平仓提醒 + 合并模式
 // Run: node proxy-server.js | Open: http://localhost:3456/
 
 const http = require('http');
@@ -8,10 +8,10 @@ const fs = require('fs');
 const path = require('path');
 const querystring = require('querystring');
 
-const PORT = process.env.PORT || 3456;
+const PORT = 3456;
 const ROOM_ID = 7000;
 const BASE = 'https://nbqh.lulutong.club';
-const APP_PASS = process.env.APP_PASS || '881199';  // 应用访问密码
+let APP_PASS = '881199';  // 应用访问密码（可被远程配置覆盖）
 
 const TEACHERS = {
   4421:'大元老师', 4767:'青松老师', 3814:'山野老师',
@@ -42,6 +42,40 @@ let loginTime = 0;
 // 内存缓存：避免短时间内重复抓取
 let cachedFetch = null;   // { key, data, ts }
 const CACHE_TTL = 5 * 60 * 1000;  // 5分钟缓存
+
+// === 远程配置 ===
+const CONFIG_URL = 'https://raw.githubusercontent.com/Bluemelancholy1/trading-scraper/main/remote-config.json';
+const APP_VERSION = require('./package.json').version;
+let remoteConfig = { enabled: true, password: '', latestVersion: '', updateUrl: '', message: '' };
+let configLoaded = false;
+
+function loadRemoteConfig() {
+  log('info', 'Loading remote config...');
+  httpReq(CONFIG_URL, 'GET', null, { 'Cache-Control': 'no-cache' })
+    .then(resp => {
+      if (resp.status === 200) {
+        try {
+          const cfg = JSON.parse(resp.body);
+          remoteConfig = { ...remoteConfig, ...cfg };
+          configLoaded = true;
+          // 用远程密码覆盖本地密码（如果远程配置了）
+          if (cfg.password) APP_PASS = cfg.password;
+          log('ok', 'Remote config loaded: enabled=' + cfg.enabled + ', password=' + (cfg.password ? '***' : 'use default'));
+        } catch(e) {
+          log('warn', 'Remote config parse error');
+        }
+      }
+    })
+    .catch(e => {
+      log('warn', 'Remote config fetch failed: ' + e.message + ' (will use defaults)');
+    });
+}
+
+// 每30分钟刷新一次远程配置
+function startConfigPolling() {
+  loadRemoteConfig(); // 启动时立即加载
+  setInterval(loadRemoteConfig, 30 * 60 * 1000);
+}
 
 function log(type, msg) {
   const icons = {info:'i',ok:'OK',warn:'W',err:'X',data:'D'};
@@ -367,6 +401,18 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ loggedIn: !!(roomCookie || loginCookie), appReady: appLoggedIn }));
       return;
     }
+    if (urlPath === '/config') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        enabled: remoteConfig.enabled,
+        latestVersion: remoteConfig.latestVersion,
+        currentVersion: APP_VERSION,
+        updateUrl: remoteConfig.updateUrl,
+        message: remoteConfig.message,
+        configLoaded
+      }));
+      return;
+    }
     if (urlPath === '/teachers') {
       res.writeHead(200, {'Content-Type':'application/json'});
       res.end(JSON.stringify(TEACHERS));
@@ -379,6 +425,12 @@ const server = http.createServer((req, res) => {
       req.on('data', c => { body += c; });
       req.on('end', () => {
         try {
+          // 检查远程是否禁用
+          if (configLoaded && !remoteConfig.enabled) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, disabled: true, error: '该应用已被停用，请联系管理员' }));
+            return;
+          }
           const data = JSON.parse(body || '{}');
           if (data.password === APP_PASS) {
             appLoggedIn = true;
@@ -448,6 +500,11 @@ const server = http.createServer((req, res) => {
       req.on('data', c => { body += c; });
       req.on('end', async () => {
         try {
+          if (configLoaded && !remoteConfig.enabled) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, disabled: true, error: '该应用已被停用' }));
+            return;
+          }
           if (!appLoggedIn) {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: false, authError: true, error: '请先验证应用密码' }));
@@ -501,8 +558,9 @@ server.on('error', e => log('err', 'Server: ' + e.message));
 
 server.listen(PORT, '0.0.0.0', () => {
   log('ok', `Server v3 started on http://localhost:${PORT}`);
-  log('info', `Open http://localhost:${PORT}/ in browser`);
-  log('info', `Login: POST /login {password:"881199", phone:"16616135917", pass:"135917"}`);
+  log('info', `App version: ${APP_VERSION}`);
+  log('info', `Remote config: ${CONFIG_URL}`);
+  startConfigPolling();
 });
 
 process.on('uncaughtException', e => { log('err', 'FATAL: ' + e.message); process.exit(1); });
