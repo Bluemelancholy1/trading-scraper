@@ -1,1 +1,714 @@
-<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>大粤K�?· 建仓/平仓数据抓取</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Microsoft YaHei',sans-serif;background:#0f1117;color:#e0e0e0;min-height:100vh}.wrap{max-width:1400px;margin:0 auto;padding:20px}/* Header */.header{display:flex;align-items:center;gap:16px;padding:16px 24px;background:#1a1d2e;border-radius:12px;margin-bottom:20px;flex-wrap:wrap}.header h1{font-size:20px;color:#f0c040}.header .badge{padding:3px 10px;border-radius:20px;font-size:12px;background:#252838;color:#888}.status-dot{width:10px;height:10px;border-radius:50%;background:#e74c3c;flex-shrink:0}.status-dot.live{background:#2ecc71;animation:pulse 2s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}/* Remote Banner */.banner{padding:10px 16px;border-radius:8px;margin-bottom:16px;font-size:14px;line-height:1.6}.banner.info{background:rgba(52,152,219,.15);border:1px solid #3498db;color:#5dade2}.banner.warn{background:rgba(231,76,60,.15);border:1px solid #e74c3c;color:#e74c3c}.banner a{color:#5dade2}/* Stats */.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}.stat-card{background:#1a1d2e;border-radius:10px;padding:16px;text-align:center}.stat-card .val{font-size:26px;font-weight:bold;color:#f0c040}.stat-card .lbl{font-size:12px;color:#666;margin-top:4px}.stat-card.profit .val{color:#2ecc71}.stat-card.loss .val{color:#e74c3c}/* Filters */.filters{background:#1a1d2e;border-radius:12px;padding:20px;margin-bottom:16px}.filters h2{font-size:14px;margin-bottom:14px;color:#888}.filter-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.filter-row label{font-size:13px;color:#888;white-space:nowrap}.filter-row input,.filter-row select{padding:8px 12px;background:#252838;border:1px solid #333;border-radius:6px;color:#e0e0e0;font-size:13px}.filter-row input[type=date]{font-family:inherit}.filter-row select{font-family:inherit}.filter-row select option{background:#1a1d2e}.filter-row input[type=text]{font-family:inherit}/* Buttons */.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:#f0c040;color:#0f1117;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:bold;transition:.2s;box-shadow:0 0 0 0 rgba(240,192,64,.4)}.btn:hover{background:#f5d060;box-shadow:0 0 12px rgba(240,192,64,.35)}.btn:active{transform:scale(.97)}.btn.green{background:#2ecc71;color:#fff}.btn.green:hover{background:#27ae60}.btn.red{background:#e74c3c;color:#fff}.btn.red:hover{background:#c0392b}.btn.gray{background:#252838;color:#888}.btn.gray:hover{background:#333}.btn.small{padding:6px 14px;font-size:13px}/* Teacher Summary */.teacher-summary{background:#1a1d2e;border-radius:12px;padding:20px;margin-bottom:16px;display:none}.teacher-summary h2{font-size:14px;margin-bottom:14px;color:#888}.teacher-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}.t-card{background:#252838;border-radius:8px;padding:14px;border-left:3px solid #f0c040}.t-card .t-name{font-size:15px;font-weight:bold;color:#f0c040;margin-bottom:8px}.t-card .t-row{display:flex;justify-content:space-between;font-size:12px;color:#888;padding:2px 0}.t-card .t-row .t-val{color:#e0e0e0;font-family:monospace}.t-card .t-row .t-val.win{color:#2ecc71}.t-card .t-row .t-val.lose{color:#e74c3c}.t-card .t-row .t-val.rate{color:#3498db}.t-card .t-winrate{margin-top:8px;height:4px;background:#1e2130;border-radius:2px;overflow:hidden}.t-card .t-winrate div{height:100%;background:#2ecc71;border-radius:2px;transition:width .3s}/* Table */.table-wrap{background:#1a1d2e;border-radius:12px;overflow:hidden;margin-bottom:16px}.toolbar{display:flex;gap:8px;padding:14px 16px;border-bottom:1px solid #252838;flex-wrap:wrap;align-items:center}.toolbar strong{font-size:14px}.toolbar span{font-size:13px;color:#666;margin-left:auto}table{width:100%;border-collapse:collapse;font-size:13px}thead th{background:#1e2130;padding:12px 10px;text-align:left;font-size:12px;color:#888;white-space:nowrap;position:sticky;top:0;z-index:2}tbody tr{border-bottom:1px solid #1e2130;transition:background .15s}tbody tr:hover{background:#252838}tbody td{padding:10px 10px;vertical-align:middle;white-space:nowrap}tbody td .dir{font-weight:bold}tbody td .dir.空{color:#e74c3c}tbody td .dir.多{color:#2ecc71}tbody td .price{font-family:monospace;font-size:13px}tbody td .teacher-tag{display:inline-block;padding:2px 8px;background:#252838;border-radius:4px;font-size:12px;color:#888}tbody td .closed-badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;background:rgba(46,204,113,.15);color:#2ecc71}tbody td .open-badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;background:rgba(240,192,64,.15);color:#f0c040}tbody td .sl{font-family:monospace;color:#e74c3c;font-size:12px}tbody td .tp{font-family:monospace;color:#2ecc71;font-size:12px}tbody td .profit{font-family:monospace;font-weight:bold}tbody td .profit.pos{color:#2ecc71}tbody td .profit.neg{color:#e74c3c}.pager{display:flex;gap:8px;padding:14px 16px;border-top:1px solid #252838;align-items:center;flex-wrap:wrap}.pager button{padding:7px 14px;background:#252838;border:1px solid #333;color:#e0e0e0;border-radius:6px;cursor:pointer;font-size:13px}.pager button:hover{background:#333}.pager button.active{background:#f0c040;color:#0f1117;border-color:#f0c040}.pager span{font-size:13px;color:#666;margin-left:auto}.field-tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;background:#252838;color:#666}/* Lock Screen */.screen-lock{position:fixed;inset:0;background:#0f1117;display:flex;align-items:center;justify-content:center;z-index:999}.screen-lock.hidden{display:none}.lock-card{background:#1a1d2e;border-radius:16px;padding:40px 48px;width:360px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}.lock-icon{font-size:48px;margin-bottom:16px}.lock-title{font-size:22px;color:#f0c040;font-weight:bold;margin-bottom:6px}.lock-sub{font-size:13px;color:#666;margin-bottom:28px}.lock-input{width:100%;padding:14px 18px;background:#252838;border:2px solid #333;border-radius:10px;color:#e0e0e0;font-size:16px;text-align:center;letter-spacing:4px;margin-bottom:16px;box-sizing:border-box}.lock-input:focus{outline:none;border-color:#f0c040}.lock-btn{width:100%;padding:14px;background:#f0c040;color:#0f1117;border:none;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer;transition:.2s}.lock-btn:hover{background:#f5d060}.lock-btn:active{transform:scale(.98)}.lock-error{color:#e74c3c;font-size:13px;margin-top:12px;min-height:20px}/* Auto Refresh */.autorefresh{display:flex;align-items:center;gap:8px;font-size:13px;color:#888}.autorefresh select{padding:4px 8px;background:#252838;border:1px solid #333;border-radius:4px;color:#e0e0e0;font-size:12px}.autorefresh select option{background:#1a1d2e}.ar-toggle{width:36px;height:20px;background:#333;border-radius:10px;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}.ar-toggle.on{background:#2ecc71}.ar-toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s}.ar-toggle.on::after{transform:translateX(16px)}.ar-countdown{font-family:monospace;font-size:12px;color:#666;min-width:32px}/* Edit Price Button */.price-cell{display:flex;align-items:center;gap:4px}.edit-btn{background:none;border:none;color:#f0c040;cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px;opacity:.5;transition:.2s}.edit-btn:hover{opacity:1;background:rgba(240,192,64,.15)}.edited-tag{font-size:10px;color:#e67e22;background:rgba(230,126,34,.15);padding:1px 4px;border-radius:3px;margin-left:2px}/* Edit Modal */.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:1000}.modal-overlay.show{display:flex}.modal-box{background:#1a1d2e;border-radius:16px;padding:28px 32px;width:380px;box-shadow:0 20px 60px rgba(0,0,0,.5)}.modal-box h3{font-size:16px;color:#f0c040;margin-bottom:16px}.modal-box label{font-size:13px;color:#888;display:block;margin-bottom:4px}.modal-box input{width:100%;padding:10px 14px;background:#252838;border:1px solid #333;border-radius:8px;color:#e0e0e0;font-size:15px;font-family:monospace;box-sizing:border-box;margin-bottom:16px}.modal-box input:focus{outline:none;border-color:#f0c040}.modal-box .modal-info{font-size:12px;color:#666;margin-bottom:12px;line-height:1.6}.modal-box .modal-info span{color:#e0e0e0}.modal-btns{display:flex;gap:10px;justify-content:flex-end}.modal-btns button{padding:8px 20px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:bold;transition:.2s}.modal-btns .btn-save{background:#2ecc71;color:#fff}.modal-btns .btn-save:hover{background:#27ae60}.modal-btns .btn-cancel{background:#252838;color:#888}.modal-btns .btn-cancel:hover{background:#333}</style></head><body><!-- 锁屏 --><div class="screen-lock" id="screenLock">  <div class="lock-card">    <div class="lock-icon">🔐</div>    <div class="lock-title">大粤K�?· 数据查看</div>    <div class="lock-sub">输入密码解锁</div>    <input type="password" class="lock-input" id="lockInput" placeholder="请输入密�? maxlength="20" autocomplete="off">    <button class="lock-btn" id="lockBtn">解锁</button>    <div class="lock-error" id="lockError"></div>  </div></div><!-- 数据界面 --><div id="screenData" style="display:none"><div class="wrap">  <!-- 更新提示�?-->  <div id="updateBar" class="banner info" style="display:none;margin-bottom:16px">    <span id="updateMsg"></span>    <button class="btn small green" id="btnInstall" style="margin-left:16px;display:none" onclick="doInstallUpdate()">安装更新并重�?/button>  </div>  <!-- Header -->  <div class="header">    <h1>📊 大粤K�?· 建仓/平仓数据</h1>    <span class="badge">房间 7000</span>    <span class="badge" id="modeBadge">合并模式</span>    <div style="margin-left:auto;display:flex;align-items:center;gap:12px">      <button class="btn small gray" id="btnLock" title="锁屏">🔒 锁屏</button>      <div class="autorefresh">        <span>自动刷新</span>        <div class="ar-toggle" id="arToggle" title="开关自动刷�?></div>        <select id="arInterval" title="刷新间隔">          <option value="1">1分钟</option>          <option value="3">3分钟</option>          <option value="5" selected>5分钟</option>          <option value="10">10分钟</option>        </select>        <span class="ar-countdown" id="arCountdown"></span>      </div>      <div style="display:flex;align-items:center;gap:6px">        <div class="status-dot" id="statusDot"></div>        <span id="statusTxt" style="font-size:13px;color:#888">未连�?/span>      </div>    </div>  </div>  <!-- Stats -->  <div class="stats" id="statsArea" style="display:none">    <div class="stat-card"><div class="val" id="statTotal">-</div><div class="lbl">总记录数</div></div>    <div class="stat-card"><div class="val" id="statPage">-</div><div class="lbl">本页记录</div></div>    <div class="stat-card"><div class="val" id="statClosed">-</div><div class="lbl">已平�?/div></div>    <div class="stat-card"><div class="val" id="statOpen">-</div><div class="lbl">未平�?/div></div>    <div class="stat-card"><div class="val" id="statProfit">-</div><div class="lbl">盈利记录</div></div>    <div class="stat-card loss"><div class="val" id="statLoss">-</div><div class="lbl">亏损记录</div></div>  </div>  <!-- Filters -->  <div class="filters" id="filtersArea" style="display:none">    <h2>🔍 筛�?&amp; 工具</h2>    <div class="filter-row">      <label>日期�?/label><input type="date" id="fStart">      <label>�?/label><input type="date" id="fEnd">      <label>老师</label>      <select id="fTeacher"><option value="">全部老师</option></select>      <label>方向</label>      <select id="fDir"><option value="">全部</option><option value="�?>�?/option><option value="�?>�?/option></select>      <label>商品</label><input type="text" id="fProduct" placeholder="如：美黄�? style="width:120px">      <button class="btn small green" id="btnFetch">📥 刷新本页</button>      <button class="btn small green" id="btnFetchAll">📥 抓取全部</button>      <button class="btn small" id="btnExport">💾 导出 CSV</button>    </div>  </div>  <!-- Teacher Summary -->  <div class="teacher-summary" id="teacherSummary">    <h2>👨🏫 老师盈亏汇�?/h2>    <div class="teacher-cards" id="teacherCards"></div>  </div>  <!-- Data Table -->  <div class="table-wrap" id="tableArea" style="display:none">    <div class="toolbar">      <strong>📋 数据列表</strong>      <button class="btn small" id="btnMode">切换：建仓提�?/button>      <span id="tableInfo"></span>    </div>    <div style="overflow-x:auto">      <table id="dataTable">        <thead id="tableHead"></thead>        <tbody id="tableBody"></tbody>      </table>    </div>    <div class="pager">      <button id="btnFirst">« 首页</button>      <button id="btnPrev">�?上一�?/button>      <span id="pageNums"></span>      <button id="btnNext">下一�?�?/button>      <button id="btnLast">末页 »</button>      <span id="pageInfo"></span>    </div>  </div></div></div><!-- end screenData --><!-- 编辑点位弹窗 --><div class="modal-overlay" id="editModal">  <div class="modal-box">    <h3>✏️ 修改点位</h3>    <div class="modal-info" id="editInfo"></div>    <label id="editLabel">点位</label>    <input type="text" id="editInput" placeholder="输入新的点位数�? autocomplete="off">    <div class="modal-btns">      <button class="btn-cancel" onclick="closeEditModal()">取消</button>      <button class="btn-save" onclick="saveEdit()">确认修改</button>    </div>  </div></div><script>const API = 'http://localhost:3456';  // 本地测试�?proxy-server.jsconst ROOM_ID = 7000;const TEACHERS = {  4421:'大元老师', 4767:'青松老师', 3814:'山野老师',  3154:'羽木老师', 4732:'安然老师', 4460:'泰山老师',  3153:'大元老师', 3155:'夏美老师',};// 品种合约配置（与 proxy-server.js 保持一致，用于前端重算盈亏�?const CONTRACTS = {  '小纳�?: { unit: 20,  unitCcy: 'USD', rate: 7.98, priceDiv: 1,   ptDiv: 1    },  '微纳�?: { unit: 2,   unitCcy: 'USD', rate: 7.98, priceDiv: 1,   ptDiv: 1    },  '恒指':   { unit: 50,  unitCcy: 'HKD', rate: 1.00, priceDiv: 1,   ptDiv: 1    },  '美原�?: { unit: 10,  unitCcy: 'USD', rate: 7.98, priceDiv: 1,   ptDiv: 0.01 },  '美黄�?: { unit: 100, unitCcy: 'USD', rate: 7.98, priceDiv: 1,   ptDiv: 1    },  '黄金':   { unit: 10,  unitCcy: 'CNY', rate: 7.98, priceDiv: 1,   ptDiv: 1    },};const COLS = [  {key:'openTime',  label:'开仓时�?,  w:'160'},  {key:'direction', label:'方向',      w:'55'},  {key:'product',   label:'商品',      w:'100'},  {key:'openPrice', label:'开仓点�?,  w:'100'},  {key:'stopLoss',  label:'止损',     w:'100', cls:'sl'},  {key:'takeProfit',label:'止盈',     w:'130', cls:'tp'},  {key:'closeTime', label:'平仓时间',  w:'160'},  {key:'closePrice',label:'平仓点位',  w:'100'},  {key:'profitPts', label:'获利点数',  w:'90',  cls:'profit'},  {key:'profitAmt', label:'盈亏金额',  w:'90',  cls:'profit'},  {key:'teacher',   label:'老师',      w:'90'},  {key:'status',    label:'状�?,      w:'70'},];// Statelet allRows = [];let filteredRows = [];let page = 1;const PAGE_SIZE = 20;let currentMode = 'merged';let isFetching = false;// === API helper ===async function api(path, method, body) {  const r = await fetch(API + path, {    method: method || 'GET',    headers: { 'Content-Type': 'application/json' },    body: body ? JSON.stringify(body) : undefined,  });  return r.json();}// === Render head ===function renderHead() {  document.getElementById('tableHead').innerHTML = '<tr>' + COLS.map(c =>    `<th style="width:${c.w}px">${c.label}</th>`  ).join('') + '</tr>';}// === Render table body ===function renderTable(rows) {  const start = (page - 1) * PAGE_SIZE;  const pageRows = rows.slice(start, start + PAGE_SIZE);  document.getElementById('tableBody').innerHTML = pageRows.map((row, i) => {    const bg = i % 2 === 0 ? '' : 'style="background:#1c1f2d"';    return '<tr ' + bg + '>' + COLS.map(c => {      let val = row[c.key] !== undefined ? row[c.key] : '';      const cls = c.cls || '';      const title = val ? ` title="${val}"` : '';      if (c.key === 'direction') return `<td><span class="dir ${val}">${val}</span></td>`;      if (c.key === 'openPrice' || c.key === 'closePrice') {        const edited = row['_edited_' + c.key];        return `<td><div class="price-cell"><span class="price">${val}</span>${edited ? '<span class="edited-tag">已改</span>' : ''}<button class="edit-btn" onclick="openEditModal(${start+i},'${c.key}')" title="修改点位">✏️</button></div></td>`;      }      if (c.key === 'stopLoss' || c.key === 'takeProfit') {        return `<td><span class="price${cls?' '+cls:''}">${val}</span></td>`;      }      if (c.key === 'profitPts') {        if (!val) return '<td><span class="field-tag">未平�?/span></td>';        const neg = parseFloat(val) < 0;        return `<td><span class="profit ${neg?'neg':'pos'}">${val}</span></td>`;      }      if (c.key === 'profitAmt') {        if (!val) return '<td></td>';        const neg = val.startsWith('¥') && !val.startsWith('+¥');        return `<td><span class="profit ${neg?'neg':'pos'}">${val}</span></td>`;      }      if (c.key === 'teacher') return `<td><span class="teacher-tag">${val}</span></td>`;      if (c.key === 'status') {        return row.isClosed          ? `<td><span class="closed-badge">已平�?/span></td>`          : `<td><span class="open-badge">未平�?/span></td>`;      }      return `<td${title} style="max-width:${c.w}px;overflow:hidden;text-overflow:ellipsis">${val}</td>`;    }).join('') + '</tr>';  }).join('');  document.getElementById('tableInfo').textContent =    `�?${rows.length} �?| �?${Math.min(start+1,rows.length)}-${Math.min(start+PAGE_SIZE,rows.length)} 条`;}// === Stats ===function updateStats(rows) {  document.getElementById('statTotal').textContent = rows.length;  document.getElementById('statPage').textContent = rows.length > 0    ? `${(page-1)*PAGE_SIZE+1}-${Math.min(page*PAGE_SIZE,rows.length)}` : 0;  const closed = rows.filter(r=>r.isClosed).length;  document.getElementById('statClosed').textContent = closed;  document.getElementById('statOpen').textContent = rows.length - closed;  const profitRows = rows.filter(r=>r.profitPts && parseFloat(r.profitPts)>0);  const lossRows   = rows.filter(r=>r.profitPts && parseFloat(r.profitPts)<0);  document.getElementById('statProfit').textContent = profitRows.length;  document.getElementById('statLoss').textContent   = lossRows.length;}// === Pager ===function renderPager(rows) {  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));  const nums = document.getElementById('pageNums');  let html = '';  for (let p = Math.max(1,page-2); p <= Math.min(totalPages,page+2); p++) {    html += `<button class="${p===page?'active':''}" onclick="goPage(${p})">${p}</button>`;  }  nums.innerHTML = html;  document.getElementById('pageInfo').textContent = `�?${page} / ${totalPages} 页`;}function goPage(p) {  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));  page = Math.max(1, Math.min(p, totalPages));  renderTable(filteredRows);  renderPager(filteredRows);}// === Teacher Summary ===function updateTeacherSummary(rows) {  const map = {};  rows.forEach(r => {    if (!r.teacher) return;    if (!map[r.teacher]) map[r.teacher] = {      name:r.teacher, total:0, wins:0, losses:0, open:0, unknown:0,      profitAmt:0, winAmt:0, lossAmt:0    };    const t = map[r.teacher];    t.total++;    if (r.isClosed) {      if (r.profitPts && r.profitPts !== '') {        const pts = parseFloat(r.profitPts);        if (!isNaN(pts)) {          if (pts > 0) { t.wins++; t.winAmt += pts; }          else if (pts < 0) { t.losses++; t.lossAmt += Math.abs(pts); }        } else {          t.unknown++;        }      } else {        // 已平仓但盈亏点数为空（closePrice缺失/解析失败�?        t.unknown++;      }      if (r.profitAmt && r.profitAmt !== '未知品种') {        const amt = parseFloat(r.profitAmt.replace(/[¥+,]/g,''));        if (!isNaN(amt)) t.profitAmt += amt;      }    } else {      t.open++;    }  });  const teachers = Object.values(map).sort((a,b)=>b.profitAmt-a.profitAmt);  if (!teachers.length) { document.getElementById('teacherSummary').style.display='none'; return; }  document.getElementById('teacherSummary').style.display='block';  document.getElementById('teacherCards').innerHTML = teachers.map(t => {    const closed = t.wins + t.losses;    const winRate = closed > 0 ? (t.wins/closed*100).toFixed(1) : '-';    const amtStr  = t.profitAmt >= 0 ? `+${t.profitAmt.toFixed(0)}` : t.profitAmt.toFixed(0);    const barW    = closed > 0 ? (t.wins/closed*100) : 0;    const checked = t.wins + t.losses + t.open + t.unknown;    const diff    = t.total - checked;    const avgWin  = t.wins > 0 ? t.winAmt/t.wins : 0;    const avgLoss = t.losses > 0 ? t.lossAmt/t.losses : 0;    const rr = avgLoss > 0 ? (avgWin/avgLoss).toFixed(1) : (t.wins>0?'�?:'-');    return `<div class="t-card">      <div class="t-name">${t.name}</div>      <div class="t-row"><span>总喊�?/span><span class="t-val">${t.total}</span></div>      <div class="t-row"><span>盈利</span><span class="t-val win">${t.wins}</span></div>      <div class="t-row"><span>亏损</span><span class="t-val lose">${t.losses}</span></div>      <div class="t-row"><span>持仓�?/span><span class="t-val">${t.open}</span></div>      ${t.unknown > 0 ? `<div class="t-row"><span>未知</span><span class="t-val" style="color:#e67e22">${t.unknown}</span></div>` : ''}      ${diff !== 0 ? `<div class="t-row"><span style="color:#e74c3c">�?�?{Math.abs(diff)}�?/span><span class="t-val"></span></div>` : ''}      <div class="t-row"><span>胜率</span><span class="t-val rate">${winRate}%</span></div>      <div class="t-row"><span>盈亏�?/span><span class="t-val rate">${rr}</span></div>      <div class="t-row"><span>总盈�?/span><span class="t-val ${t.profitAmt>=0?'win':'lose'}">¥${amtStr}</span></div>      <div class="t-winrate"><div style="width:${barW}%"></div></div>    </div>`;  }).join('');}// === Apply filters ===function applyFilters() {  const startD = document.getElementById('fStart').value;  const endD   = document.getElementById('fEnd').value;  const teacher = document.getElementById('fTeacher').value;  const dir    = document.getElementById('fDir').value;  const product= document.getElementById('fProduct').value.trim();  filteredRows = allRows.filter(row => {    if (startD) {      const p = row.openTime.split(' ')[0].split('/');      const d = `${p[0]}-${String(p[1]).padStart(2,'0')}-${String(p[2]).padStart(2,'0')}`;      if (d < startD) return false;    }    if (endD) {      const p = row.openTime.split(' ')[0].split('/');      const d = `${p[0]}-${String(p[1]).padStart(2,'0')}-${String(p[2]).padStart(2,'0')}`;      if (d > endD) return false;    }    if (teacher && row.teacher !== teacher) return false;    if (dir && row.direction !== dir) return false;    if (product && !row.product.includes(product)) return false;    return true;  });  page = 1;  renderTable(filteredRows);  renderPager(filteredRows);  updateStats(filteredRows);  updateTeacherSummary(filteredRows);}// === Edit Price Modal ===let editRowIdx = -1;let editField = '';function openEditModal(idx, field) {  const row = filteredRows[idx];  if (!row) return;  editRowIdx = idx;  editField = field;  const label = field === 'openPrice' ? '开仓点�? : '平仓点位';  const current = row[field] || '';  document.getElementById('editLabel').textContent = label;  document.getElementById('editInput').value = current;  document.getElementById('editInfo').innerHTML =    `<span>${row.product}</span> · <span>${row.direction}</span> · <span>${row.teacher || '-'}</span><br>` +    `当前${label}�?span>${current}</span>` +    (field === 'closePrice' && row.openPrice ? ` · 开仓点位：<span>${row.openPrice}</span>` : '') +    (field === 'openPrice' && row.closePrice ? ` · 平仓点位�?span>${row.closePrice}</span>` : '');  document.getElementById('editModal').classList.add('show');  setTimeout(() => document.getElementById('editInput').focus(), 100);}function closeEditModal() {  document.getElementById('editModal').classList.remove('show');  editRowIdx = -1;  editField = '';}function saveEdit() {  if (editRowIdx < 0) return;  const row = filteredRows[editRowIdx];  const newVal = document.getElementById('editInput').value.trim();  if (!newVal || isNaN(parseFloat(newVal))) return;  // 保存原始值（首次修改时备份）  const backupKey = '_orig_' + editField;  if (!row[backupKey]) row[backupKey] = row[editField];  // 更新�?  row[editField] = newVal;  row['_edited_' + editField] = true;  // 重算盈亏（开仓价或平仓价变了都要重算�?  recalcProfit(row);  // 同步�?allRows（保持数据一致）  const origIdx = allRows.indexOf(row);  if (origIdx >= 0) {    allRows[origIdx] = row;  }  closeEditModal();  renderTable(filteredRows);  updateStats(filteredRows);  updateTeacherSummary(filteredRows);}function recalcProfit(row) {  const cv = CONTRACTS[row.product] || {};  const div = cv.priceDiv || 1;  const o = parseFloat(row.openPrice) / div;  const c = parseFloat(row.closePrice) / div;  if (!isNaN(o) && !isNaN(c) && c !== 0) {    let pts = 0;    if (row.direction === '�?) pts = c - o;    else if (row.direction === '�?) pts = o - c;    row.profitPts = pts > 0 ? '+' + pts.toFixed(2) : pts.toFixed(2);    if (cv.unit) {      const ptDiv = cv.ptDiv || 1;      const amount = (pts / ptDiv) * cv.unit * cv.rate;      row.profitAmt = amount > 0 ? '+¥' + amount.toFixed(0) : '¥' + amount.toFixed(0);    } else {      row.profitAmt = '未知品种';    }  }}// ESC 关闭弹窗 / Enter 保存document.addEventListener('keydown', e => {  if (!document.getElementById('editModal').classList.contains('show')) return;  if (e.key === 'Escape') closeEditModal();  if (e.key === 'Enter') saveEdit();});// === Auto login ===async function autoLogin() {  try {    const r = await api('/login', 'POST', {      password: '414102',      phone: '16616135917',      pass: '135917',    });    if (r.ok) {      document.getElementById('statusDot').classList.add('live');      document.getElementById('statusTxt').textContent = '已登�?;      return true;    }    document.getElementById('statusTxt').textContent = '登录失败';  } catch(e) {    document.getElementById('statusTxt').textContent = '连接失败';  }  return false;}// === Fetch ===async function doFetch(forceAll) {  if (isFetching) return;  if (!forceAll && allRows.length > 0) { applyFilters(); return; }  isFetching = true;  const btn  = document.getElementById('btnFetchAll');  const orig = btn.textContent;  btn.textContent = '�?抓取�?..';  btn.disabled = true;  try {    const filters = {};    const s = document.getElementById('fStart').value;    const e = document.getElementById('fEnd').value;    if (s) filters.pt = s.replace(/-/g,'/');    if (e) filters.et = e.replace(/-/g,'/');    const r = await api('/fetch', 'POST', { mode: currentMode, filters });    if (!r.ok) throw new Error(r.error || (r.authError ? '请先解锁' : '抓取失败'));    allRows = r.rows || [];    filteredRows = [...allRows];    page = 1;    renderTable(filteredRows);    renderPager(filteredRows);    updateStats(filteredRows);    updateTeacherSummary(filteredRows);    document.getElementById('statsArea').style.display = 'grid';    document.getElementById('filtersArea').style.display = 'block';    document.getElementById('tableArea').style.display = 'block';  } catch(e) {    alert('抓取失败�? + e.message);  } finally {    btn.textContent = orig;    btn.disabled = false;    isFetching = false;  }}// === Export CSV ===function exportCSV() {  if (!filteredRows.length) { alert('没有数据可导�?); return; }  const header = COLS.map(c=>c.label).join(',');  const rows = filteredRows.map(row =>    COLS.map(c => {      let v = (row[c.key] !== undefined ? row[c.key] : '');      if (String(v).includes(',')||String(v).includes('"')||String(v).includes('\n'))        v = '"' + String(v).replace(/"/g,'""') + '"';      return v;    }).join(',')  );  const csv = '\uFEFF' + [header, ...rows].join('\r\n');  const blob = new Blob([csv], {type:'text/csv;charset=utf-8-sig'});  const a = document.createElement('a');  a.href = URL.createObjectURL(blob);  a.download = `大粤K线_合并_${new Date().toISOString().slice(0,10)}.csv`;  a.click();}// === Load teachers filter ===async function loadTeachers() {  try {    const r = await api('/teachers');    const sel = document.getElementById('fTeacher');    Object.values(r).forEach(name => {      const opt = document.createElement('option');      opt.value = name; opt.textContent = name;      sel.appendChild(opt);    });  } catch(e) {}}// === Auto Refresh ===let arTimer = null, arCdTimer = null, arLeft = 0;function startAR() {  stopAR();  const min = parseInt(document.getElementById('arInterval').value);  arLeft = min * 60;  arTimer = setInterval(() => { allRows=[]; doFetch(true); arLeft = min*60; }, min*60000);  arCdTimer = setInterval(() => {    arLeft--;    const m = Math.floor(arLeft/60), s = arLeft%60;    document.getElementById('arCountdown').textContent = `${m}:${String(s).padStart(2,'0')}`;  }, 1000);  document.getElementById('arToggle').classList.add('on');  document.getElementById('arCountdown').textContent = `${min}:00`;}function stopAR() {  if (arTimer) { clearInterval(arTimer); arTimer=null; }  if (arCdTimer) { clearInterval(arCdTimer); arCdTimer=null; }  document.getElementById('arToggle').classList.remove('on');  document.getElementById('arCountdown').textContent = '';}// === Remote config banner ===async function loadRemoteBanner() {  try {    const cfg = await api('/config');    if (cfg.latestVersion && cfg.currentVersion && cfg.latestVersion !== cfg.currentVersion) {      const url = cfg.updateUrl || 'https://github.com/Bluemelancholy1/trading-scraper/releases';      showBanner('info', `🆕 新版�?v${cfg.latestVersion}（当�?v${cfg.currentVersion}），<a href="${url}" target="_blank" style="color:#5dade2">点击下载</a>`);    }    if (cfg.message) showBanner('warn', cfg.message);  } catch(e) {}}function showBanner(type, html) {  const el = document.createElement('div');  el.className = 'banner ' + type;  el.innerHTML = html;  document.querySelector('.wrap').prepend(el);}// === Lock / Unlock ===async function doUnlock() {  const pw = document.getElementById('lockInput').value;  if (!pw) { document.getElementById('lockError').textContent = '请输入密�?; return; }  try {    const r = await api('/unlock', 'POST', { password: pw });    if (r.ok) {      document.getElementById('lockInput').value = '';      document.getElementById('lockError').textContent = '';      showDataScreen();      loadRemoteBanner();      await autoLogin();      await doFetch(false);    } else if (r.disabled) {      document.getElementById('lockError').textContent = '该应用已被停用，请联系管理员';    } else {      document.getElementById('lockError').textContent = r.error || '密码错误';    }  } catch(e) {    document.getElementById('lockError').textContent = '连接失败，请确认服务已启�?;  }}function showLockScreen() {  document.getElementById('screenLock').classList.remove('hidden');  document.getElementById('screenData').style.display = 'none';}function showDataScreen() {  document.getElementById('screenLock').classList.add('hidden');  document.getElementById('screenData').style.display = '';}// === Init ===async function init() {  const today = new Date().toISOString().slice(0,10);  const weekAgo = new Date(Date.now()-7*86400000).toISOString().slice(0,10);  document.getElementById('fEnd').value = today;  document.getElementById('fStart').value = weekAgo;  renderHead();  loadTeachers();  try {    const r = await api('/status');    if (r.appReady) {      showDataScreen();      loadRemoteBanner();      if (!r.loggedIn) await autoLogin();      await doFetch(false);    } else {      showLockScreen();    }  } catch(e) {    showLockScreen();  }}// === Event bindings ===document.getElementById('btnFetch').onclick   = () => doFetch(false);document.getElementById('btnFetchAll').onclick = () => doFetch(true);document.getElementById('btnExport').onclick   = exportCSV;document.getElementById('btnFirst').onclick     = () => goPage(1);document.getElementById('btnPrev').onclick      = () => goPage(page-1);document.getElementById('btnNext').onclick      = () => goPage(page+1);document.getElementById('btnLast').onclick      = () => goPage(9999);document.getElementById('lockBtn').onclick      = doUnlock;document.getElementById('lockInput').onkeydown  = e => { if(e.key==='Enter') doUnlock(); };document.getElementById('btnLock').onclick      = async () => { await api('/lock','GET'); showLockScreen(); };document.getElementById('arToggle').onclick = function() {  this.classList.contains('on') ? stopAR() : startAR();};document.getElementById('arInterval').onchange = function() {  if (document.getElementById('arToggle').classList.contains('on')) startAR();};['fStart','fEnd','fTeacher','fDir','fProduct'].forEach(id => {  const el = document.getElementById(id);  el.oninput  = applyFilters;  el.onchange = applyFilters;});const MODE_LABELS = { merged:'合并模式', jc:'建仓提醒', pc:'平仓提醒' };document.getElementById('btnMode').onclick = function() {  const modes = ['merged','jc','pc'];  const idx = modes.indexOf(currentMode);  currentMode = modes[(idx+1)%3];  this.textContent = '切换�? + MODE_LABELS[modes[(idx+2)%3]];  document.getElementById('modeBadge').textContent = MODE_LABELS[currentMode];  allRows=[]; filteredRows=[];  renderHead();  renderTable([]);  renderPager([]);  updateStats([]);  updateTeacherSummary([]);};// === Auto Update ===let pendingVersion = null;function doInstallUpdate() {  if (window.electronAPI) window.electronAPI.installUpdate();}if (window.electronAPI) {  window.electronAPI.onUpdateStatus((data) => {    const bar = document.getElementById('updateBar');    const msg = document.getElementById('updateMsg');    const btn = document.getElementById('btnInstall');    if (!bar || !msg) return;    if (data.status === 'available') {      bar.style.display = 'flex';      bar.className = 'banner info';      msg.textContent = `🆕 发现新版�?v${data.version}，正在后台下�?..`;      btn.style.display = 'none';      pendingVersion = data.version;    } else if (data.status === 'downloading') {      bar.style.display = 'flex';      bar.className = 'banner info';      msg.textContent = `📥 正在下载更新... ${data.progress}%`;      btn.style.display = 'none';    } else if (data.status === 'ready') {      bar.style.display = 'flex';      bar.className = 'banner info';      msg.textContent = `�?新版�?v${data.version} 下载完成！`;      btn.style.display = 'inline-flex';    } else if (data.status === 'error') {      bar.style.display = 'flex';      bar.className = 'banner warn';      msg.textContent = `⚠️ 更新检查失败：${data.error}`;      btn.style.display = 'none';    } else if (data.status === 'up-to-date') {      bar.style.display = 'none';    }  });}init();</script></body></html>
+﻿﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>大粤K线 · 建仓/平仓数据抓取</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Microsoft YaHei',sans-serif;background:#0f1117;color:#e0e0e0;min-height:100vh}
+.wrap{max-width:1400px;margin:0 auto;padding:20px}
+
+/* Header */
+.header{display:flex;align-items:center;gap:16px;padding:16px 24px;background:#1a1d2e;border-radius:12px;margin-bottom:20px;flex-wrap:wrap}
+.header h1{font-size:20px;color:#f0c040}
+.header .badge{padding:3px 10px;border-radius:20px;font-size:12px;background:#252838;color:#888}
+.status-dot{width:10px;height:10px;border-radius:50%;background:#e74c3c;flex-shrink:0}
+.status-dot.live{background:#2ecc71;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Remote Banner */
+.banner{padding:10px 16px;border-radius:8px;margin-bottom:16px;font-size:14px;line-height:1.6}
+.banner.info{background:rgba(52,152,219,.15);border:1px solid #3498db;color:#5dade2}
+.banner.warn{background:rgba(231,76,60,.15);border:1px solid #e74c3c;color:#e74c3c}
+.banner a{color:#5dade2}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.stat-card{background:#1a1d2e;border-radius:10px;padding:16px;text-align:center}
+.stat-card .val{font-size:26px;font-weight:bold;color:#f0c040}
+.stat-card .lbl{font-size:12px;color:#666;margin-top:4px}
+.stat-card.profit .val{color:#2ecc71}
+.stat-card.loss .val{color:#e74c3c}
+
+/* Filters */
+.filters{background:#1a1d2e;border-radius:12px;padding:20px;margin-bottom:16px}
+.filters h2{font-size:14px;margin-bottom:14px;color:#888}
+.filter-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.filter-row label{font-size:13px;color:#888;white-space:nowrap}
+.filter-row input,.filter-row select{padding:8px 12px;background:#252838;border:1px solid #333;border-radius:6px;color:#e0e0e0;font-size:13px}
+.filter-row input[type=date]{font-family:inherit}
+.filter-row select{font-family:inherit}
+.filter-row select option{background:#1a1d2e}
+.filter-row input[type=text]{font-family:inherit}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:#f0c040;color:#0f1117;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:bold;transition:.2s;box-shadow:0 0 0 0 rgba(240,192,64,.4)}
+.btn:hover{background:#f5d060;box-shadow:0 0 12px rgba(240,192,64,.35)}
+.btn:active{transform:scale(.97)}
+.btn.green{background:#2ecc71;color:#fff}
+.btn.green:hover{background:#27ae60}
+.btn.red{background:#e74c3c;color:#fff}
+.btn.red:hover{background:#c0392b}
+.btn.gray{background:#252838;color:#888}
+.btn.gray:hover{background:#333}
+.btn.small{padding:6px 14px;font-size:13px}
+
+/* Teacher Summary */
+.teacher-summary{background:#1a1d2e;border-radius:12px;padding:20px;margin-bottom:16px;display:none}
+.teacher-summary h2{font-size:14px;margin-bottom:14px;color:#888}
+.teacher-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.t-card{background:#252838;border-radius:8px;padding:14px;border-left:3px solid #f0c040}
+.t-card .t-name{font-size:15px;font-weight:bold;color:#f0c040;margin-bottom:8px}
+.t-card .t-row{display:flex;justify-content:space-between;font-size:12px;color:#888;padding:2px 0}
+.t-card .t-row .t-val{color:#e0e0e0;font-family:monospace}
+.t-card .t-row .t-val.win{color:#2ecc71}
+.t-card .t-row .t-val.lose{color:#e74c3c}
+.t-card .t-row .t-val.rate{color:#3498db}
+.t-card .t-winrate{margin-top:8px;height:4px;background:#1e2130;border-radius:2px;overflow:hidden}
+.t-card .t-winrate div{height:100%;background:#2ecc71;border-radius:2px;transition:width .3s}
+
+/* Table */
+.table-wrap{background:#1a1d2e;border-radius:12px;overflow:hidden;margin-bottom:16px}
+.toolbar{display:flex;gap:8px;padding:14px 16px;border-bottom:1px solid #252838;flex-wrap:wrap;align-items:center}
+.toolbar strong{font-size:14px}
+.toolbar span{font-size:13px;color:#666;margin-left:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:#1e2130;padding:12px 10px;text-align:left;font-size:12px;color:#888;white-space:nowrap;position:sticky;top:0;z-index:2}
+tbody tr{border-bottom:1px solid #1e2130;transition:background .15s}
+tbody tr:hover{background:#252838}
+tbody td{padding:10px 10px;vertical-align:middle;white-space:nowrap}
+tbody td .dir{font-weight:bold}
+tbody td .dir.空{color:#e74c3c}
+tbody td .dir.多{color:#2ecc71}
+tbody td .price{font-family:monospace;font-size:13px}
+tbody td .teacher-tag{display:inline-block;padding:2px 8px;background:#252838;border-radius:4px;font-size:12px;color:#888}
+tbody td .closed-badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;background:rgba(46,204,113,.15);color:#2ecc71}
+tbody td .open-badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;background:rgba(240,192,64,.15);color:#f0c040}
+tbody td .sl{font-family:monospace;color:#e74c3c;font-size:12px}
+tbody td .tp{font-family:monospace;color:#2ecc71;font-size:12px}
+tbody td .profit{font-family:monospace;font-weight:bold}
+tbody td .profit.pos{color:#2ecc71}
+tbody td .profit.neg{color:#e74c3c}
+.pager{display:flex;gap:8px;padding:14px 16px;border-top:1px solid #252838;align-items:center;flex-wrap:wrap}
+.pager button{padding:7px 14px;background:#252838;border:1px solid #333;color:#e0e0e0;border-radius:6px;cursor:pointer;font-size:13px}
+.pager button:hover{background:#333}
+.pager button.active{background:#f0c040;color:#0f1117;border-color:#f0c040}
+.pager span{font-size:13px;color:#666;margin-left:auto}
+.field-tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;background:#252838;color:#666}
+
+/* Lock Screen */
+.screen-lock{position:fixed;inset:0;background:#0f1117;display:flex;align-items:center;justify-content:center;z-index:999}
+.screen-lock.hidden{display:none}
+.lock-card{background:#1a1d2e;border-radius:16px;padding:40px 48px;width:360px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.lock-icon{font-size:48px;margin-bottom:16px}
+.lock-title{font-size:22px;color:#f0c040;font-weight:bold;margin-bottom:6px}
+.lock-sub{font-size:13px;color:#666;margin-bottom:28px}
+.lock-input{width:100%;padding:14px 18px;background:#252838;border:2px solid #333;border-radius:10px;color:#e0e0e0;font-size:16px;text-align:center;letter-spacing:4px;margin-bottom:16px;box-sizing:border-box}
+.lock-input:focus{outline:none;border-color:#f0c040}
+.lock-btn{width:100%;padding:14px;background:#f0c040;color:#0f1117;border:none;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer;transition:.2s}
+.lock-btn:hover{background:#f5d060}
+.lock-btn:active{transform:scale(.98)}
+.lock-error{color:#e74c3c;font-size:13px;margin-top:12px;min-height:20px}
+
+/* Auto Refresh */
+.autorefresh{display:flex;align-items:center;gap:8px;font-size:13px;color:#888}
+.autorefresh select{padding:4px 8px;background:#252838;border:1px solid #333;border-radius:4px;color:#e0e0e0;font-size:12px}
+.autorefresh select option{background:#1a1d2e}
+.ar-toggle{width:36px;height:20px;background:#333;border-radius:10px;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+.ar-toggle.on{background:#2ecc71}
+.ar-toggle::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s}
+.ar-toggle.on::after{transform:translateX(16px)}
+.ar-countdown{font-family:monospace;font-size:12px;color:#666;min-width:32px}
+</style>
+</head>
+<body>
+
+<!-- 锁屏 -->
+<div class="screen-lock" id="screenLock">
+  <div class="lock-card">
+    <div class="lock-icon">🔐</div>
+    <div class="lock-title">大粤K线 · 数据查看</div>
+    <div class="lock-sub">输入密码解锁</div>
+    <input type="password" class="lock-input" id="lockInput" placeholder="请输入密码" maxlength="20" autocomplete="off">
+    <button class="lock-btn" id="lockBtn">解锁</button>
+    <div class="lock-error" id="lockError"></div>
+  </div>
+</div>
+
+<!-- 数据界面 -->
+<div id="screenData" style="display:none">
+<div class="wrap">
+
+  <!-- 更新提示栏 -->
+  <div id="updateBar" class="banner info" style="display:none;margin-bottom:16px">
+    <span id="updateMsg"></span>
+    <button class="btn small green" id="btnInstall" style="margin-left:16px;display:none" onclick="doInstallUpdate()">安装更新并重启</button>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <h1>📊 大粤K线 · 建仓/平仓数据</h1>
+    <span class="badge">房间 7000</span>
+    <span class="badge" id="modeBadge">合并模式</span>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+      <button class="btn small gray" id="btnLock" title="锁屏">🔒 锁屏</button>
+      <div class="autorefresh">
+        <span>自动刷新</span>
+        <div class="ar-toggle" id="arToggle" title="开关自动刷新"></div>
+        <select id="arInterval" title="刷新间隔">
+          <option value="1">1分钟</option>
+          <option value="3">3分钟</option>
+          <option value="5" selected>5分钟</option>
+          <option value="10">10分钟</option>
+        </select>
+        <span class="ar-countdown" id="arCountdown"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusTxt" style="font-size:13px;color:#888">未连接</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="statsArea" style="display:none">
+    <div class="stat-card"><div class="val" id="statTotal">-</div><div class="lbl">总记录数</div></div>
+    <div class="stat-card"><div class="val" id="statPage">-</div><div class="lbl">本页记录</div></div>
+    <div class="stat-card"><div class="val" id="statClosed">-</div><div class="lbl">已平仓</div></div>
+    <div class="stat-card"><div class="val" id="statOpen">-</div><div class="lbl">未平仓</div></div>
+    <div class="stat-card"><div class="val" id="statProfit">-</div><div class="lbl">盈利记录</div></div>
+    <div class="stat-card loss"><div class="val" id="statLoss">-</div><div class="lbl">亏损记录</div></div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters" id="filtersArea" style="display:none">
+    <h2>🔍 筛选 &amp; 工具</h2>
+    <div class="filter-row">
+      <label>日期从</label><input type="date" id="fStart">
+      <label>至</label><input type="date" id="fEnd">
+      <label>老师</label>
+      <select id="fTeacher"><option value="">全部老师</option></select>
+      <label>方向</label>
+      <select id="fDir"><option value="">全部</option><option value="多">多</option><option value="空">空</option></select>
+      <label>商品</label><input type="text" id="fProduct" placeholder="如：美黄金" style="width:120px">
+      <button class="btn small green" id="btnFetch">📥 刷新本页</button>
+      <button class="btn small green" id="btnFetchAll">📥 抓取全部</button>
+      <button class="btn small" id="btnExport">💾 导出 CSV</button>
+    </div>
+  </div>
+
+  <!-- Teacher Summary -->
+  <div class="teacher-summary" id="teacherSummary">
+    <h2>👨🏫 老师盈亏汇总</h2>
+    <div class="teacher-cards" id="teacherCards"></div>
+  </div>
+
+  <!-- Data Table -->
+  <div class="table-wrap" id="tableArea" style="display:none">
+    <div class="toolbar">
+      <strong>📋 数据列表</strong>
+      <button class="btn small" id="btnMode">切换：建仓提醒</button>
+      <span id="tableInfo"></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table id="dataTable">
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <button id="btnFirst">« 首页</button>
+      <button id="btnPrev">‹ 上一页</button>
+      <span id="pageNums"></span>
+      <button id="btnNext">下一页 ›</button>
+      <button id="btnLast">末页 »</button>
+      <span id="pageInfo"></span>
+    </div>
+  </div>
+
+</div>
+</div><!-- end screenData -->
+
+<script>
+const API = '';  // 同源代理（Electron proxy-server.js）
+const ROOM_ID = 7000;
+
+const TEACHERS = {
+  4421:'大元老师', 4767:'青松老师', 3814:'山野老师',
+  3154:'羽木老师', 4732:'安然老师', 4460:'泰山老师',
+  3153:'大元老师', 3155:'夏美老师',
+};
+
+const COLS = [
+  {key:'openTime',  label:'开仓时间',  w:'160'},
+  {key:'direction', label:'方向',      w:'55'},
+  {key:'product',   label:'商品',      w:'100'},
+  {key:'openPrice', label:'开仓点位',  w:'100'},
+  {key:'stopLoss',  label:'止损',     w:'100', cls:'sl'},
+  {key:'takeProfit',label:'止盈',     w:'130', cls:'tp'},
+  {key:'closeTime', label:'平仓时间',  w:'160'},
+  {key:'closePrice',label:'平仓点位',  w:'100'},
+  {key:'profitPts', label:'获利点数',  w:'90',  cls:'profit'},
+  {key:'profitAmt', label:'盈亏金额',  w:'90',  cls:'profit'},
+  {key:'teacher',   label:'老师',      w:'90'},
+  {key:'status',    label:'状态',      w:'70'},
+];
+
+// State
+let allRows = [];
+let filteredRows = [];
+let page = 1;
+const PAGE_SIZE = 20;
+let currentMode = 'merged';
+let isFetching = false;
+
+// === API helper ===
+async function api(path, method, body) {
+  const r = await fetch(API + path, {
+    method: method || 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return r.json();
+}
+
+// === Render head ===
+function renderHead() {
+  document.getElementById('tableHead').innerHTML = '<tr>' + COLS.map(c =>
+    `<th style="width:${c.w}px">${c.label}</th>`
+  ).join('') + '</tr>';
+}
+
+// === Render table body ===
+function renderTable(rows) {
+  const start = (page - 1) * PAGE_SIZE;
+  const pageRows = rows.slice(start, start + PAGE_SIZE);
+  document.getElementById('tableBody').innerHTML = pageRows.map((row, i) => {
+    const bg = i % 2 === 0 ? '' : 'style="background:#1c1f2d"';
+    return '<tr ' + bg + '>' + COLS.map(c => {
+      let val = row[c.key] !== undefined ? row[c.key] : '';
+      const cls = c.cls || '';
+      const title = val ? ` title="${val}"` : '';
+      if (c.key === 'direction') return `<td><span class="dir ${val}">${val}</span></td>`;
+      if (c.key === 'openPrice' || c.key === 'closePrice' || c.key === 'stopLoss' || c.key === 'takeProfit') {
+        return `<td><span class="price${cls?' '+cls:''}">${val}</span></td>`;
+      }
+      if (c.key === 'profitPts') {
+        if (!val) return '<td><span class="field-tag">未平仓</span></td>';
+        const neg = parseFloat(val) < 0;
+        return `<td><span class="profit ${neg?'neg':'pos'}">${val}</span></td>`;
+      }
+      if (c.key === 'profitAmt') {
+        if (!val) return '<td></td>';
+        const neg = val.startsWith('¥') && !val.startsWith('+¥');
+        return `<td><span class="profit ${neg?'neg':'pos'}">${val}</span></td>`;
+      }
+      if (c.key === 'teacher') return `<td><span class="teacher-tag">${val}</span></td>`;
+      if (c.key === 'status') {
+        return row.isClosed
+          ? `<td><span class="closed-badge">已平仓</span></td>`
+          : `<td><span class="open-badge">未平仓</span></td>`;
+      }
+      return `<td${title} style="max-width:${c.w}px;overflow:hidden;text-overflow:ellipsis">${val}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+  document.getElementById('tableInfo').textContent =
+    `共 ${rows.length} 条 | 第 ${Math.min(start+1,rows.length)}-${Math.min(start+PAGE_SIZE,rows.length)} 条`;
+}
+
+// === Stats ===
+function updateStats(rows) {
+  document.getElementById('statTotal').textContent = rows.length;
+  document.getElementById('statPage').textContent = rows.length > 0
+    ? `${(page-1)*PAGE_SIZE+1}-${Math.min(page*PAGE_SIZE,rows.length)}` : 0;
+  const closed = rows.filter(r=>r.isClosed).length;
+  document.getElementById('statClosed').textContent = closed;
+  document.getElementById('statOpen').textContent = rows.length - closed;
+  const profitRows = rows.filter(r=>r.profitPts && parseFloat(r.profitPts)>0);
+  const lossRows   = rows.filter(r=>r.profitPts && parseFloat(r.profitPts)<0);
+  document.getElementById('statProfit').textContent = profitRows.length;
+  document.getElementById('statLoss').textContent   = lossRows.length;
+}
+
+// === Pager ===
+function renderPager(rows) {
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const nums = document.getElementById('pageNums');
+  let html = '';
+  for (let p = Math.max(1,page-2); p <= Math.min(totalPages,page+2); p++) {
+    html += `<button class="${p===page?'active':''}" onclick="goPage(${p})">${p}</button>`;
+  }
+  nums.innerHTML = html;
+  document.getElementById('pageInfo').textContent = `第 ${page} / ${totalPages} 页`;
+}
+
+function goPage(p) {
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  page = Math.max(1, Math.min(p, totalPages));
+  renderTable(filteredRows);
+  renderPager(filteredRows);
+}
+
+// === Teacher Summary ===
+function updateTeacherSummary(rows) {
+  const map = {};
+  rows.forEach(r => {
+    if (!r.teacher) return;
+    if (!map[r.teacher]) map[r.teacher] = {
+      name:r.teacher, total:0, wins:0, losses:0, open:0,
+      profitAmt:0, winAmt:0, lossAmt:0
+    };
+    const t = map[r.teacher];
+    t.total++;
+    if (r.isClosed && r.profitPts) {
+      const pts = parseFloat(r.profitPts);
+      if (pts > 0) { t.wins++; t.winAmt += pts; }
+      else if (pts < 0) { t.losses++; t.lossAmt += Math.abs(pts); }
+      if (r.profitAmt && r.profitAmt !== '未知品种') {
+        const amt = parseFloat(r.profitAmt.replace(/[¥+,]/g,''));
+        if (!isNaN(amt)) t.profitAmt += amt;
+      }
+    } else if (!r.isClosed) {
+      t.open++;
+    }
+  });
+
+  const teachers = Object.values(map).sort((a,b)=>b.profitAmt-a.profitAmt);
+  if (!teachers.length) { document.getElementById('teacherSummary').style.display='none'; return; }
+  document.getElementById('teacherSummary').style.display='block';
+  document.getElementById('teacherCards').innerHTML = teachers.map(t => {
+    const closed = t.wins + t.losses;
+    const winRate = closed > 0 ? (t.wins/closed*100).toFixed(1) : '-';
+    const amtStr  = t.profitAmt >= 0 ? `+${t.profitAmt.toFixed(0)}` : t.profitAmt.toFixed(0);
+    const barW    = closed > 0 ? (t.wins/closed*100) : 0;
+    const avgWin  = t.wins > 0 ? t.winAmt/t.wins : 0;
+    const avgLoss = t.losses > 0 ? t.lossAmt/t.losses : 0;
+    const rr = avgLoss > 0 ? (avgWin/avgLoss).toFixed(1) : (t.wins>0?'∞':'-');
+    return `<div class="t-card">
+      <div class="t-name">${t.name}</div>
+      <div class="t-row"><span>总喊单</span><span class="t-val">${t.total}</span></div>
+      <div class="t-row"><span>盈利</span><span class="t-val win">${t.wins}</span></div>
+      <div class="t-row"><span>亏损</span><span class="t-val lose">${t.losses}</span></div>
+      <div class="t-row"><span>持仓中</span><span class="t-val">${t.open}</span></div>
+      <div class="t-row"><span>胜率</span><span class="t-val rate">${winRate}%</span></div>
+      <div class="t-row"><span>盈亏比</span><span class="t-val rate">${rr}</span></div>
+      <div class="t-row"><span>总盈亏</span><span class="t-val ${t.profitAmt>=0?'win':'lose'}">¥${amtStr}</span></div>
+      <div class="t-winrate"><div style="width:${barW}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// === Apply filters ===
+function applyFilters() {
+  const startD = document.getElementById('fStart').value;
+  const endD   = document.getElementById('fEnd').value;
+  const teacher = document.getElementById('fTeacher').value;
+  const dir    = document.getElementById('fDir').value;
+  const product= document.getElementById('fProduct').value.trim();
+
+  filteredRows = allRows.filter(row => {
+    if (startD) {
+      const p = row.openTime.split(' ')[0].split('/');
+      const d = `${p[0]}-${String(p[1]).padStart(2,'0')}-${String(p[2]).padStart(2,'0')}`;
+      if (d < startD) return false;
+    }
+    if (endD) {
+      const p = row.openTime.split(' ')[0].split('/');
+      const d = `${p[0]}-${String(p[1]).padStart(2,'0')}-${String(p[2]).padStart(2,'0')}`;
+      if (d > endD) return false;
+    }
+    if (teacher && row.teacher !== teacher) return false;
+    if (dir && row.direction !== dir) return false;
+    if (product && !row.product.includes(product)) return false;
+    return true;
+  });
+
+  page = 1;
+  renderTable(filteredRows);
+  renderPager(filteredRows);
+  updateStats(filteredRows);
+  updateTeacherSummary(filteredRows);
+}
+
+// === Auto login ===
+async function autoLogin() {
+  try {
+    const r = await api('/login', 'POST', {
+      password: '881199',
+      phone: '16616135917',
+      pass: '135917',
+    });
+    if (r.ok) {
+      document.getElementById('statusDot').classList.add('live');
+      document.getElementById('statusTxt').textContent = '已登录';
+      return true;
+    }
+    document.getElementById('statusTxt').textContent = '登录失败';
+  } catch(e) {
+    document.getElementById('statusTxt').textContent = '连接失败';
+  }
+  return false;
+}
+
+// === Fetch ===
+async function doFetch(forceAll) {
+  if (isFetching) return;
+  if (!forceAll && allRows.length > 0) { applyFilters(); return; }
+
+  isFetching = true;
+  const btn  = document.getElementById('btnFetchAll');
+  const orig = btn.textContent;
+  btn.textContent = '⏳ 抓取中...';
+  btn.disabled = true;
+
+  try {
+    const filters = {};
+    const s = document.getElementById('fStart').value;
+    const e = document.getElementById('fEnd').value;
+    if (s) filters.pt = s.replace(/-/g,'/');
+    if (e) filters.et = e.replace(/-/g,'/');
+
+    const r = await api('/fetch', 'POST', { mode: currentMode, filters });
+    if (!r.ok) throw new Error(r.error || (r.authError ? '请先解锁' : '抓取失败'));
+
+    allRows = r.rows || [];
+    filteredRows = [...allRows];
+    page = 1;
+
+    renderTable(filteredRows);
+    renderPager(filteredRows);
+    updateStats(filteredRows);
+    updateTeacherSummary(filteredRows);
+
+    document.getElementById('statsArea').style.display = 'grid';
+    document.getElementById('filtersArea').style.display = 'block';
+    document.getElementById('tableArea').style.display = 'block';
+  } catch(e) {
+    alert('抓取失败：' + e.message);
+  } finally {
+    btn.textContent = orig;
+    btn.disabled = false;
+    isFetching = false;
+  }
+}
+
+// === Export CSV ===
+function exportCSV() {
+  if (!filteredRows.length) { alert('没有数据可导出'); return; }
+  const header = COLS.map(c=>c.label).join(',');
+  const rows = filteredRows.map(row =>
+    COLS.map(c => {
+      let v = (row[c.key] !== undefined ? row[c.key] : '');
+      if (String(v).includes(',')||String(v).includes('"')||String(v).includes('\n'))
+        v = '"' + String(v).replace(/"/g,'""') + '"';
+      return v;
+    }).join(',')
+  );
+  const csv = '\uFEFF' + [header, ...rows].join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8-sig'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `大粤K线_合并_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// === Load teachers filter ===
+async function loadTeachers() {
+  try {
+    const r = await api('/teachers');
+    const sel = document.getElementById('fTeacher');
+    Object.values(r).forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      sel.appendChild(opt);
+    });
+  } catch(e) {}
+}
+
+// === Auto Refresh ===
+let arTimer = null, arCdTimer = null, arLeft = 0;
+
+function startAR() {
+  stopAR();
+  const min = parseInt(document.getElementById('arInterval').value);
+  arLeft = min * 60;
+  arTimer = setInterval(() => { allRows=[]; doFetch(true); arLeft = min*60; }, min*60000);
+  arCdTimer = setInterval(() => {
+    arLeft--;
+    const m = Math.floor(arLeft/60), s = arLeft%60;
+    document.getElementById('arCountdown').textContent = `${m}:${String(s).padStart(2,'0')}`;
+  }, 1000);
+  document.getElementById('arToggle').classList.add('on');
+  document.getElementById('arCountdown').textContent = `${min}:00`;
+}
+
+function stopAR() {
+  if (arTimer) { clearInterval(arTimer); arTimer=null; }
+  if (arCdTimer) { clearInterval(arCdTimer); arCdTimer=null; }
+  document.getElementById('arToggle').classList.remove('on');
+  document.getElementById('arCountdown').textContent = '';
+}
+
+// === Remote config banner ===
+async function loadRemoteBanner() {
+  try {
+    const cfg = await api('/config');
+    if (cfg.latestVersion && cfg.currentVersion && cfg.latestVersion !== cfg.currentVersion) {
+      const url = cfg.updateUrl || 'https://github.com/Bluemelancholy1/trading-scraper/releases';
+      showBanner('info', `🆕 新版本 v${cfg.latestVersion}（当前 v${cfg.currentVersion}），<a href="${url}" target="_blank" style="color:#5dade2">点击下载</a>`);
+    }
+    if (cfg.message) showBanner('warn', cfg.message);
+  } catch(e) {}
+}
+
+function showBanner(type, html) {
+  const el = document.createElement('div');
+  el.className = 'banner ' + type;
+  el.innerHTML = html;
+  document.querySelector('.wrap').prepend(el);
+}
+
+// === Lock / Unlock ===
+async function doUnlock() {
+  const pw = document.getElementById('lockInput').value;
+  if (!pw) { document.getElementById('lockError').textContent = '请输入密码'; return; }
+  try {
+    const r = await api('/unlock', 'POST', { password: pw });
+    if (r.ok) {
+      document.getElementById('lockInput').value = '';
+      document.getElementById('lockError').textContent = '';
+      showDataScreen();
+      loadRemoteBanner();
+      await autoLogin();
+      await doFetch(false);
+    } else if (r.disabled) {
+      document.getElementById('lockError').textContent = '该应用已被停用，请联系管理员';
+    } else {
+      document.getElementById('lockError').textContent = r.error || '密码错误';
+    }
+  } catch(e) {
+    document.getElementById('lockError').textContent = '连接失败，请确认服务已启动';
+  }
+}
+
+function showLockScreen() {
+  document.getElementById('screenLock').classList.remove('hidden');
+  document.getElementById('screenData').style.display = 'none';
+}
+
+function showDataScreen() {
+  document.getElementById('screenLock').classList.add('hidden');
+  document.getElementById('screenData').style.display = '';
+}
+
+// === Init ===
+async function init() {
+  const today = new Date().toISOString().slice(0,10);
+  const weekAgo = new Date(Date.now()-7*86400000).toISOString().slice(0,10);
+  document.getElementById('fEnd').value = today;
+  document.getElementById('fStart').value = weekAgo;
+
+  renderHead();
+  loadTeachers();
+
+  try {
+    const r = await api('/status');
+    if (r.appReady) {
+      showDataScreen();
+      loadRemoteBanner();
+      if (!r.loggedIn) await autoLogin();
+      await doFetch(false);
+    } else {
+      showLockScreen();
+    }
+  } catch(e) {
+    showLockScreen();
+  }
+}
+
+// === Event bindings ===
+document.getElementById('btnFetch').onclick   = () => doFetch(false);
+document.getElementById('btnFetchAll').onclick = () => doFetch(true);
+document.getElementById('btnExport').onclick   = exportCSV;
+document.getElementById('btnFirst').onclick     = () => goPage(1);
+document.getElementById('btnPrev').onclick      = () => goPage(page-1);
+document.getElementById('btnNext').onclick      = () => goPage(page+1);
+document.getElementById('btnLast').onclick      = () => goPage(9999);
+document.getElementById('lockBtn').onclick      = doUnlock;
+document.getElementById('lockInput').onkeydown  = e => { if(e.key==='Enter') doUnlock(); };
+document.getElementById('btnLock').onclick      = async () => { await api('/lock','GET'); showLockScreen(); };
+
+document.getElementById('arToggle').onclick = function() {
+  this.classList.contains('on') ? stopAR() : startAR();
+};
+document.getElementById('arInterval').onchange = function() {
+  if (document.getElementById('arToggle').classList.contains('on')) startAR();
+};
+
+['fStart','fEnd','fTeacher','fDir','fProduct'].forEach(id => {
+  const el = document.getElementById(id);
+  el.oninput  = applyFilters;
+  el.onchange = applyFilters;
+});
+
+const MODE_LABELS = { merged:'合并模式', jc:'建仓提醒', pc:'平仓提醒' };
+document.getElementById('btnMode').onclick = function() {
+  const modes = ['merged','jc','pc'];
+  const idx = modes.indexOf(currentMode);
+  currentMode = modes[(idx+1)%3];
+  this.textContent = '切换：' + MODE_LABELS[modes[(idx+2)%3]];
+  document.getElementById('modeBadge').textContent = MODE_LABELS[currentMode];
+  allRows=[]; filteredRows=[];
+  renderHead();
+  renderTable([]);
+  renderPager([]);
+  updateStats([]);
+  updateTeacherSummary([]);
+};
+
+// === Auto Update ===
+let pendingVersion = null;
+
+function doInstallUpdate() {
+  if (window.electronAPI) window.electronAPI.installUpdate();
+}
+
+if (window.electronAPI) {
+  window.electronAPI.onUpdateStatus((data) => {
+    const bar = document.getElementById('updateBar');
+    const msg = document.getElementById('updateMsg');
+    const btn = document.getElementById('btnInstall');
+    if (!bar || !msg) return;
+
+    if (data.status === 'available') {
+      bar.style.display = 'flex';
+      bar.className = 'banner info';
+      msg.textContent = `🆕 发现新版本 v${data.version}，正在后台下载...`;
+      btn.style.display = 'none';
+      pendingVersion = data.version;
+    } else if (data.status === 'downloading') {
+      bar.style.display = 'flex';
+      bar.className = 'banner info';
+      msg.textContent = `📥 正在下载更新... ${data.progress}%`;
+      btn.style.display = 'none';
+    } else if (data.status === 'ready') {
+      bar.style.display = 'flex';
+      bar.className = 'banner info';
+      msg.textContent = `✅ 新版本 v${data.version} 下载完成！`;
+      btn.style.display = 'inline-flex';
+    } else if (data.status === 'error') {
+      bar.style.display = 'flex';
+      bar.className = 'banner warn';
+      msg.textContent = `⚠️ 更新检查失败：${data.error}`;
+      btn.style.display = 'none';
+    } else if (data.status === 'up-to-date') {
+      bar.style.display = 'none';
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>
