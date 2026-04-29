@@ -10,8 +10,8 @@ const querystring = require('querystring');
 
 const PORT = 3456;
 const ROOM_ID = 7000;
-const BASE = 'https://nbqh.lulutong.club';
-let APP_PASS = '414102';  // 应用访问密码（可被远程配置覆盖）
+const BASE = 'https://qh.yemacaijing.net';
+let APP_PASS = '135917';  // 应用访问密码（解锁用，2026-04-29更新）
 
 const TEACHERS = {
   4421:'大元老师', 4767:'青松老师', 3814:'山野老师',
@@ -33,10 +33,10 @@ const CONTRACTS = {
   '黄金':   { unit: 10,  unitCcy: 'CNY', rate: 7.98, priceDiv: 1   },  // ¥10/整点
 };
 
-let roomCookie = '';
-let loginCookie = '';
+let aspSession = '';  // ASPSESSIONIDCARSAADR=xxx
+let loginCookie = '';  // ishow=xxx
 let appLoggedIn = false;   // 默认未登录，输入正确密码后解锁
-const LOGIN_PASSWORD = '881199';
+const LOGIN_PASSWORD = '135917';  // ASP网站登录密码（陈少账号）
 let loginTime = 0;
 
 // 内存缓存：避免短时间内重复抓取
@@ -88,6 +88,7 @@ function httpReq(targetUrl, method, postData, extraHeaders) {
     try {
       const pu = new URL(targetUrl);
       const lib = pu.protocol === 'https:' ? https : http;
+      const isTargetHost = pu.hostname === 'qh.yemacaijing.net';
       const headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': '*/*', 'Accept-Language': 'zh-CN',
@@ -95,13 +96,18 @@ function httpReq(targetUrl, method, postData, extraHeaders) {
       };
       const opt = { hostname: pu.hostname, port: pu.port || 443,
         path: pu.pathname + pu.search, method: method || 'GET',
-        headers, timeout: 25000 };
+        headers, timeout: 25000,
+        // 该站点证书域名不匹配，忽略校验
+        ...(isTargetHost ? { rejectUnauthorized: false } : {}),
+      };
       const req = lib.request(opt, res => {
         const sc = res.headers['set-cookie'];
         if (sc) {
-          const newCookie = sc.map(c => c.split(';')[0]).join('; ');
-          if (newCookie.includes('ASPSESSIONID')) roomCookie = newCookie;
-          else if (newCookie.includes('ishow')) loginCookie = newCookie;
+          for (const c of sc) {
+            const val = c.split(';')[0];
+            if (val.includes('ASPSESSIONID')) aspSession = val;
+            else if (val.includes('ishow')) loginCookie = val;
+          }
         }
         let data = '';
         res.on('data', c => data += c);
@@ -124,25 +130,30 @@ function httpReq(targetUrl, method, postData, extraHeaders) {
 }
 
 function getFullCookie() {
-  return [roomCookie, loginCookie].filter(Boolean).join('; ');
+  return [aspSession, loginCookie].filter(Boolean).join('; ');
 }
 
 // --- 登录 ---
 async function login(password, phone, pass) {
   try {
-    await httpReq(BASE + '/');
-    await httpReq(BASE + '/Handle/CheckRoomPass.asp?ac=CheckRoomPass&RID=' + ROOM_ID + '&P=' + encodeURIComponent(password));
-    log('info', 'Room cookie: ' + (roomCookie ? 'YES' : 'NO'));
+    // Step 1: Get initial ASP session
+    await httpReq(BASE + '/', 'GET', null, {});
+    log('info', 'ASP session: ' + (aspSession ? 'YES' : 'NO'));
+    // Step 2: Verify room password (must carry same session)
+    await httpReq(BASE + '/Handle/CheckRoomPass.asp?ac=CheckRoomPass&RID=' + ROOM_ID + '&P=' + encodeURIComponent(password), 'GET', null, {
+      'Cookie': getFullCookie(),
+    });
+    log('info', 'Room cookie: ' + (aspSession ? 'YES' : 'NO'));
     if (phone && pass) {
       const pd = querystring.stringify({Method:'Login',UserMail:'',usertel:phone,UserPass:pass,_AutoLogin:'1',GoUrl:''});
       await httpReq(BASE + '/handle/qlogin/', 'POST', pd, {
         'Content-Type':'application/x-www-form-urlencoded','Origin':BASE,'Content-Length':Buffer.byteLength(pd),
-        'Cookie': roomCookie,
+        'Cookie': getFullCookie(),
       });
       log('info', 'Login cookie: ' + (loginCookie ? 'YES' : 'NO'));
     }
     loginTime = Date.now();
-    log('ok', 'LOGIN OK room=' + !!roomCookie + ' user=' + !!loginCookie);
+    log('ok', 'LOGIN OK room=' + !!aspSession + ' user=' + !!loginCookie);
     return true;
   } catch(e) {
     log('err', 'Login failed: ' + e.message);
@@ -204,6 +215,8 @@ function parsePCPage(html) {
     const direction = get(/class="data3"[^>]*title="([^"]+)"/);
     const product   = get(/class="data5"[^>]*title="([^"]+)"/);
     const rawOpen   = get(/class="data6"[^>]*title="([^"]+)"/);
+    const stopLoss  = get(/class="data7"[^>]*title="([^"]+)"/).replace(/\u00a0/g, ' ');
+    const takeProfit = get(/class="data8"[^>]*title="([^"]+)"/).replace(/\u00a0/g, ' ');
     const closeTime = get(/class="data9"[^>]*title="([^"]+)"/);
     const teacher   = get(/class="data12"[^>]*title="([^"]+)"/);
     
@@ -225,7 +238,8 @@ function parsePCPage(html) {
     if (openPrice && direction) {
       rows.push({
         openTime, direction, product, openPrice,
-        stopLoss: '', takeProfit: '',
+        stopLoss: stopLoss || '',
+        takeProfit: takeProfit || '',
         closeTime: closeTime || '', closePrice: closePrice || '',
         profitPts: '', teacher: teacher || '',
         source: 'pc', isClosed: true,
@@ -290,14 +304,21 @@ async function fetchMerged(filters, maxPages) {
   
   // 建立建仓字典：用于查找止损止盈
   // 优先用开仓时间匹配，其次用商品+方向+老师+开仓价
+  // Bug修复：如果同一钥匙有多条记录，优先保留有止损/止盈数据的
   const jcMap = {};
   jcR.rows.forEach(r => {
-    // key1: 商品+方向+老师+开仓时间（最精确）
     const timeKey = r.product + '|' + r.direction + '|' + r.teacher + '|' + r.openTime;
-    // key2: 商品+方向+老师+开仓价（降级匹配）
     const priceKey = r.product + '|' + r.direction + '|' + r.teacher + '|' + r.openPrice;
-    if (!jcMap[timeKey]) jcMap[timeKey] = r;
-    if (!jcMap[priceKey]) jcMap[priceKey] = r;
+    const thisHasData = r.stopLoss || r.takeProfit;
+
+    const storeIf = (k) => {
+      if (!jcMap[k]) { jcMap[k] = r; return; }
+      const existing = jcMap[k];
+      const existingHasData = existing.stopLoss || existing.takeProfit;
+      if (thisHasData && !existingHasData) jcMap[k] = r;
+    };
+    storeIf(timeKey);
+    storeIf(priceKey);
   });
   
   // 合并
@@ -310,10 +331,12 @@ async function fetchMerged(filters, maxPages) {
       key = r.product + '|' + r.direction + '|' + r.teacher + '|' + r.openPrice;
       jc = jcMap[key];
     }
-    // 再降级：商品+方向+老师
+    // 再降级：商品+方向+老师（优先选有止损止盈数据的）
     if (!jc) {
       key = r.product + '|' + r.direction + '|' + r.teacher;
-      jc = jcMap[Object.keys(jcMap).find(k => k.startsWith(key))];
+      const candidates = Object.keys(jcMap).filter(k => k.startsWith(key));
+      const hasData = candidates.find(k => jcMap[k].stopLoss || jcMap[k].takeProfit);
+      jc = hasData ? jcMap[hasData] : (candidates.length ? jcMap[candidates[0]] : null);
     }
     if (jc) {
       r.stopLoss   = jc.stopLoss;
@@ -398,7 +421,7 @@ const server = http.createServer((req, res) => {
 
     if (urlPath === '/status') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ loggedIn: !!(roomCookie || loginCookie), appReady: appLoggedIn }));
+      res.end(JSON.stringify({ loggedIn: !!(aspSession || loginCookie), appReady: appLoggedIn }));
       return;
     }
     if (urlPath === '/config') {
@@ -456,6 +479,28 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ ok: true }));
       return;
     }
+    // DEBUG: GET /pc_raw — 抓平仓页原始HTML（临时）
+    if (urlPath === '/pc_raw' && req.method === 'GET') {
+      if (!aspSession) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Not logged in' }));
+        return;
+      }
+      const pcUrl = BASE + '/generalmodule/shouted/_Data_Ping_Show.asp?roomid=7000&page=1&pt=50';
+      const hp = new URL(BASE); hp.pathname = '/generalmodule/shouted/_Data_Ping_Show.asp';
+      const opts = { hostname: hp.hostname, port: hp.port || 443, path: '/generalmodule/shouted/_Data_Ping_Show.asp?roomid=7000&page=1', method: 'GET', headers: { 'Cookie': aspSession, 'User-Agent': 'Mozilla/5.0' }, rejectUnauthorized: false };
+      require('https').request(opts, res2 => {
+        let d = '';
+        res2.on('data', c => d += c);
+        res2.on('end', () => {
+          // 保存到文件
+          require('fs').writeFileSync('C:/Users/chen/.qclaw/workspace/trading-scraper/pc_raw.html', d, 'utf8');
+          res.writeHead(200, { 'Content-Type': 'text/plain' });
+          res.end('Saved ' + d.length + ' bytes to pc_raw.html');
+        });
+      }).end();
+      return;
+    }
     // POST /login
     if (urlPath === '/login') {
       let body = '';
@@ -472,7 +517,7 @@ const server = http.createServer((req, res) => {
           // 密码正确或已验证，标记为已验证
           appLoggedIn = true;
           // 如果之前已有有效 session，跳过 ASP 登录（避免重复连接）
-          if (roomCookie && loginCookie) {
+          if (aspSession && loginCookie) {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: true, room: true, user: true, skipAsp: true }));
             return;
@@ -481,7 +526,7 @@ const server = http.createServer((req, res) => {
           try {
             const ok = await login(data.password || '881199', data.phone, data.pass);
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok, room: !!roomCookie, user: !!loginCookie }));
+            res.end(JSON.stringify({ ok, room: !!aspSession, user: !!loginCookie }));
           } catch(e) {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: false, aspError: true, error: e.message }));
@@ -510,7 +555,7 @@ const server = http.createServer((req, res) => {
             res.end(JSON.stringify({ ok: false, authError: true, error: '请先验证应用密码' }));
             return;
           }
-          if (!roomCookie) throw new Error('Not logged in. POST /login first.');
+          if (!aspSession) throw new Error('Not logged in. POST /login first.');
           const opts = JSON.parse(body || '{}');
           const { mode = 'merged' } = opts;
           
