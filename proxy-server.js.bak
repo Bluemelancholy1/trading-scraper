@@ -10,8 +10,8 @@ const querystring = require('querystring');
 
 const PORT = 3456;
 const ROOM_ID = 7000;
-const BASE = 'https://qh.yemacaijing.net';
-let APP_PASS = '135917';  // 应用访问密码（解锁用，2026-04-29更新）
+const BASE = 'https://nbqh.lulutong.club';
+let APP_PASS = '414102';  // 应用访问密码（可被远程配置覆盖）
 
 const TEACHERS = {
   4421:'大元老师', 4767:'青松老师', 3814:'山野老师',
@@ -29,20 +29,14 @@ const CONTRACTS = {
   '微纳指': { unit: 2,   unitCcy: 'USD', rate: 7.98, priceDiv: 1   },  // $2/整点
   '恒指':   { unit: 50,  unitCcy: 'HKD', rate: 1.00, priceDiv: 1   },  // HK$50/整点
   '美原油': { unit: 10,  unitCcy: 'USD', rate: 7.98, priceDiv: 1   },  // $10/小点，1整点=100小点=$1000
-  '美黄金': { unit: 10,  unitCcy: 'USD', rate: 7.98, priceDiv: 1   },  // $100/整点
+  '美黄金': { unit: 100, unitCcy: 'USD', rate: 7.98, priceDiv: 1   },  // $100/整点
   '黄金':   { unit: 10,  unitCcy: 'CNY', rate: 7.98, priceDiv: 1   },  // ¥10/整点
-  '小道指': { unit: 10, unitCcy: 'USD', rate: 7.98, priceDiv: 1   },  // 小道琼斯指数，$10/整点
-  '美精铜': { unit: 10, unitCcy: 'USD', rate: 7.98, priceDiv: 100 },  // 美铜，美分/磅，除100转为美元
-  '德指':   { unit: 25, unitCcy: 'EUR', rate: 9.10, priceDiv: 1   },  // 德国DAX，€25/点
-  '小德指': { unit: 5,  unitCcy: 'EUR', rate: 9.10, priceDiv: 1   },  // 小德指，€5/点
 };
 
-// 陈少浏览器真实Cookie（2026-04-30 提取）
-let aspSession = 'ASPSESSIONIDCAQSBBDQ=OCCKDKJAJDDBBAPNLBHEHILF';  // ASPSessionID from browser
-let loginCookie = 'ishow=iUserPass=135917&iUserName=4421&iAutoLogin=true';  // ishow from browser
-let guestCookie = 'Guest_Name=4ufwU803';  // Guest_Name from browser
+let roomCookie = '';
+let loginCookie = '';
 let appLoggedIn = false;   // 默认未登录，输入正确密码后解锁
-const LOGIN_PASSWORD = '135917';  // ASP网站登录密码（陈少账号）
+const LOGIN_PASSWORD = '881199';
 let loginTime = 0;
 
 // 内存缓存：避免短时间内重复抓取
@@ -94,7 +88,6 @@ function httpReq(targetUrl, method, postData, extraHeaders) {
     try {
       const pu = new URL(targetUrl);
       const lib = pu.protocol === 'https:' ? https : http;
-      const isTargetHost = pu.hostname === 'qh.yemacaijing.net';
       const headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': '*/*', 'Accept-Language': 'zh-CN',
@@ -102,18 +95,13 @@ function httpReq(targetUrl, method, postData, extraHeaders) {
       };
       const opt = { hostname: pu.hostname, port: pu.port || 443,
         path: pu.pathname + pu.search, method: method || 'GET',
-        headers, timeout: 25000,
-        // 该站点证书域名不匹配，忽略校验
-        ...(isTargetHost ? { rejectUnauthorized: false } : {}),
-      };
+        headers, timeout: 25000 };
       const req = lib.request(opt, res => {
         const sc = res.headers['set-cookie'];
         if (sc) {
-          for (const c of sc) {
-            const val = c.split(';')[0];
-            if (val.includes('ASPSESSIONID')) aspSession = val;
-            else if (val.includes('ishow')) loginCookie = val;
-          }
+          const newCookie = sc.map(c => c.split(';')[0]).join('; ');
+          if (newCookie.includes('ASPSESSIONID')) roomCookie = newCookie;
+          else if (newCookie.includes('ishow')) loginCookie = newCookie;
         }
         let data = '';
         res.on('data', c => data += c);
@@ -136,30 +124,25 @@ function httpReq(targetUrl, method, postData, extraHeaders) {
 }
 
 function getFullCookie() {
-  return [aspSession, loginCookie].filter(Boolean).join('; ');
+  return [roomCookie, loginCookie].filter(Boolean).join('; ');
 }
 
 // --- 登录 ---
 async function login(password, phone, pass) {
   try {
-    // Step 1: Get initial ASP session
-    await httpReq(BASE + '/', 'GET', null, {});
-    log('info', 'ASP session: ' + (aspSession ? 'YES' : 'NO'));
-    // Step 2: Verify room password (must carry same session)
-    await httpReq(BASE + '/Handle/CheckRoomPass.asp?ac=CheckRoomPass&RID=' + ROOM_ID + '&P=' + encodeURIComponent(password), 'GET', null, {
-      'Cookie': getFullCookie(),
-    });
-    log('info', 'Room cookie: ' + (aspSession ? 'YES' : 'NO'));
+    await httpReq(BASE + '/');
+    await httpReq(BASE + '/Handle/CheckRoomPass.asp?ac=CheckRoomPass&RID=' + ROOM_ID + '&P=' + encodeURIComponent(password));
+    log('info', 'Room cookie: ' + (roomCookie ? 'YES' : 'NO'));
     if (phone && pass) {
       const pd = querystring.stringify({Method:'Login',UserMail:'',usertel:phone,UserPass:pass,_AutoLogin:'1',GoUrl:''});
       await httpReq(BASE + '/handle/qlogin/', 'POST', pd, {
         'Content-Type':'application/x-www-form-urlencoded','Origin':BASE,'Content-Length':Buffer.byteLength(pd),
-        'Cookie': getFullCookie(),
+        'Cookie': roomCookie,
       });
       log('info', 'Login cookie: ' + (loginCookie ? 'YES' : 'NO'));
     }
     loginTime = Date.now();
-    log('ok', 'LOGIN OK room=' + !!aspSession + ' user=' + !!loginCookie);
+    log('ok', 'LOGIN OK room=' + !!roomCookie + ' user=' + !!loginCookie);
     return true;
   } catch(e) {
     log('err', 'Login failed: ' + e.message);
@@ -221,8 +204,6 @@ function parsePCPage(html) {
     const direction = get(/class="data3"[^>]*title="([^"]+)"/);
     const product   = get(/class="data5"[^>]*title="([^"]+)"/);
     const rawOpen   = get(/class="data6"[^>]*title="([^"]+)"/);
-    const stopLoss  = get(/class="data7"[^>]*title="([^"]+)"/).replace(/\u00a0/g, ' ');
-    const takeProfit = get(/class="data8"[^>]*title="([^"]+)"/).replace(/\u00a0/g, ' ');
     const closeTime = get(/class="data9"[^>]*title="([^"]+)"/);
     const teacher   = get(/class="data12"[^>]*title="([^"]+)"/);
     
@@ -244,8 +225,7 @@ function parsePCPage(html) {
     if (openPrice && direction) {
       rows.push({
         openTime, direction, product, openPrice,
-        stopLoss: stopLoss || '',
-        takeProfit: takeProfit || '',
+        stopLoss: '', takeProfit: '',
         closeTime: closeTime || '', closePrice: closePrice || '',
         profitPts: '', teacher: teacher || '',
         source: 'pc', isClosed: true,
@@ -297,85 +277,48 @@ async function fetchPages(maxPages, url, parser, filters) {
   return { rows: allRows, totalRows };
 }
 
-// --- 解析平仓结算页（完整13列，含止损止盈，2026-05-05新增）---
-function parseEndPage(html) {
-  const rows = [];
-  const re = /<li>([\s\S]*?)<\/li>/g;
-  let m;
-  while ((m = re.exec(html)) !== null) {
-    const li = m[1];
-    const get = re2 => { const r = li.match(re2); return r ? r[1].trim() : ''; };
-    
-    const openTime  = get(/class="data2"[^>]*title="([^"]+)"/);
-    if (!openTime) continue;
-    const direction = get(/class="data3"[^>]*title="([^"]+)"/);
-    const product   = get(/class="data5"[^>]*title="([^"]+)"/);
-    const rawOpen   = get(/class="data6"[^>]*title="([^"]+)"/);
-    const stopLoss  = get(/class="data7"[^>]*title="([^"]+)"/).replace(/\u00a0/g, ' ');
-    const takeProfit = get(/class="data8"[^>]*title="([^"]+)"/).replace(/\u00a0/g, ' ');
-    const closeTime = get(/class="data9"[^>]*title="([^"]+)"/);
-    const teacher   = get(/class="data12"[^>]*title="([^"]+)"/);
-    // 平仓价格从 data10 span 里的 title 提取
-    let closePrice = get(/class="data10"[^>]*title="([^"]+)"/);
-    // 提取data11（老师填写的获利点数，优先级最高）
-    const teacherProfit = get(/class="data11"[^>]*title="([^"]+)"/).replace(/\u00a0/g, ' ');
-    // 如果没有平仓点位但有老师填的获利点数，用"未填"标记
-    if (!closePrice && teacherProfit) {
-      closePrice = '未填写';
-    }
-    
-    // 智能拆分
-    let openPrice = rawOpen;
-    const rawNum = rawOpen.replace(/\D/g, '');
-    if (rawNum.length >= 8 && rawNum.length <= 14) {
-      openPrice = rawNum.substring(0, Math.ceil(rawNum.length / 2));
-    }
-    
-    if (openPrice && direction) {
-      rows.push({
-        openTime, direction, product, openPrice,
-        stopLoss: stopLoss || '',
-        takeProfit: takeProfit || '',
-        closeTime: closeTime || '', closePrice: closePrice || '',
-        teacherProfit: teacherProfit || '',  // 老师填写的获利点数
-        profitPts: '', teacher: teacher || '',
-        source: 'end', isClosed: true,
-      });
-    }
-  }
-  return rows;
-}
-
-// --- 合并模式：建仓+平仓结算（2026-05-05：改用_Data_End_Show.asp获取完整13列含SL/TP）---
+// --- 合并模式：建仓+平仓 ---
 async function fetchMerged(filters, maxPages) {
   maxPages = maxPages || 8; // 默认8页=80条
-  // 平仓结算页（完整13列，含止损/止盈）- 用新的End页替代旧的Ping页
-  const endR = await fetchPages(maxPages, BASE + '/generalModule/shouted/_Data_End_Show.asp', parseEndPage, filters);
-  log('ok', 'END loaded ' + endR.rows.length + ' rows (full 13 columns with SL/TP)');
+  // 取建仓提醒多页作为止损止盈字典
+  const jcR = await fetchPages(maxPages, BASE + '/generalmodule/shouted/_data_start_show.asp', parseJCPage, filters);
+  log('ok', 'JC loaded ' + jcR.rows.length + ' rows (for stop loss/take profit lookup)');
   
-  // 计算获利点数 & 盈亏金额
-  const merged = endR.rows.map(r => {
-    // 优先使用老师填写的获利点数（data11）
-    if (r.teacherProfit && r.teacherProfit.trim() !== '') {
-      r.profitPts = r.teacherProfit;
-      // 也需要计算金额 - 先估算平仓点位
-      const cv = CONTRACTS[r.product] || {};
-      if (cv.unit) {
-        // 从开仓点位和获利点数估算
-        const openNum = parseFloat(r.openPrice);
-        const pts = parseFloat(r.teacherProfit);
-        if (!isNaN(openNum) && !isNaN(pts)) {
-          let estClose = openNum;
-          if (r.direction === '多') estClose = openNum + pts;
-          else if (r.direction === '空') estClose = openNum - pts;
-          const div = cv.priceDiv || 1;
-          const amount = pts * cv.unit * cv.rate;
-          r.profitAmt = amount > 0 ? '+¥' + amount.toFixed(0) : '¥' + amount.toFixed(0);
-        }
-      }
-      return r;
+  // 取平仓提醒多页（带平仓价格）
+  const pcR = await fetchPages(maxPages, BASE + '/generalmodule/shouted/_Data_Ping_Show.asp', parsePCPage, filters);
+  log('ok', 'PC loaded ' + pcR.rows.length + ' rows');
+  
+  // 建立建仓字典：用于查找止损止盈
+  // 优先用开仓时间匹配，其次用商品+方向+老师+开仓价
+  const jcMap = {};
+  jcR.rows.forEach(r => {
+    // key1: 商品+方向+老师+开仓时间（最精确）
+    const timeKey = r.product + '|' + r.direction + '|' + r.teacher + '|' + r.openTime;
+    // key2: 商品+方向+老师+开仓价（降级匹配）
+    const priceKey = r.product + '|' + r.direction + '|' + r.teacher + '|' + r.openPrice;
+    if (!jcMap[timeKey]) jcMap[timeKey] = r;
+    if (!jcMap[priceKey]) jcMap[priceKey] = r;
+  });
+  
+  // 合并
+  const merged = pcR.rows.map(r => {
+    // 优先精确匹配：商品+方向+老师+开仓时间
+    let key = r.product + '|' + r.direction + '|' + r.teacher + '|' + r.openTime;
+    let jc = jcMap[key];
+    // 降级匹配：商品+方向+老师+开仓价
+    if (!jc) {
+      key = r.product + '|' + r.direction + '|' + r.teacher + '|' + r.openPrice;
+      jc = jcMap[key];
     }
-    
+    // 再降级：商品+方向+老师
+    if (!jc) {
+      key = r.product + '|' + r.direction + '|' + r.teacher;
+      jc = jcMap[Object.keys(jcMap).find(k => k.startsWith(key))];
+    }
+    if (jc) {
+      r.stopLoss   = jc.stopLoss;
+      r.takeProfit = jc.takeProfit;
+    }
     // 计算获利点数 & 盈亏金额(¥)
     // pts: 原始价格差值（美原油=小点数×1，其他=整点×priceDiv）
     // unit: 每小点/整点的美元/HKD价值
@@ -455,7 +398,7 @@ const server = http.createServer((req, res) => {
 
     if (urlPath === '/status') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ loggedIn: !!(aspSession || loginCookie), appReady: appLoggedIn }));
+      res.end(JSON.stringify({ loggedIn: !!(roomCookie || loginCookie), appReady: appLoggedIn }));
       return;
     }
     if (urlPath === '/config') {
@@ -513,28 +456,6 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ ok: true }));
       return;
     }
-    // DEBUG: GET /pc_raw — 抓平仓页原始HTML（临时）
-    if (urlPath === '/pc_raw' && req.method === 'GET') {
-      if (!aspSession) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Not logged in' }));
-        return;
-      }
-      const pcUrl = BASE + '/generalmodule/shouted/_Data_Ping_Show.asp?roomid=7000&page=1&pt=50';
-      const hp = new URL(BASE); hp.pathname = '/generalmodule/shouted/_Data_Ping_Show.asp';
-      const opts = { hostname: hp.hostname, port: hp.port || 443, path: '/generalmodule/shouted/_Data_Ping_Show.asp?roomid=7000&page=1', method: 'GET', headers: { 'Cookie': aspSession, 'User-Agent': 'Mozilla/5.0' }, rejectUnauthorized: false };
-      require('https').request(opts, res2 => {
-        let d = '';
-        res2.on('data', c => d += c);
-        res2.on('end', () => {
-          // 保存到文件
-          require('fs').writeFileSync('C:/Users/chen/.qclaw/workspace/trading-scraper/pc_raw.html', d, 'utf8');
-          res.writeHead(200, { 'Content-Type': 'text/plain' });
-          res.end('Saved ' + d.length + ' bytes to pc_raw.html');
-        });
-      }).end();
-      return;
-    }
     // POST /login
     if (urlPath === '/login') {
       let body = '';
@@ -551,7 +472,7 @@ const server = http.createServer((req, res) => {
           // 密码正确或已验证，标记为已验证
           appLoggedIn = true;
           // 如果之前已有有效 session，跳过 ASP 登录（避免重复连接）
-          if (aspSession && loginCookie) {
+          if (roomCookie && loginCookie) {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: true, room: true, user: true, skipAsp: true }));
             return;
@@ -560,7 +481,7 @@ const server = http.createServer((req, res) => {
           try {
             const ok = await login(data.password || '881199', data.phone, data.pass);
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok, room: !!aspSession, user: !!loginCookie }));
+            res.end(JSON.stringify({ ok, room: !!roomCookie, user: !!loginCookie }));
           } catch(e) {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: false, aspError: true, error: e.message }));
@@ -589,7 +510,7 @@ const server = http.createServer((req, res) => {
             res.end(JSON.stringify({ ok: false, authError: true, error: '请先验证应用密码' }));
             return;
           }
-          if (!aspSession) throw new Error('Not logged in. POST /login first.');
+          if (!roomCookie) throw new Error('Not logged in. POST /login first.');
           const opts = JSON.parse(body || '{}');
           const { mode = 'merged' } = opts;
           
@@ -607,10 +528,9 @@ const server = http.createServer((req, res) => {
           if (mode === 'merged') {
             result = await fetchMerged(opts.filters || {}, maxPages);
           } else if (mode === 'pc') {
-            // 使用平仓结算页（完整13列含SL/TP）
-            result = await fetchPages(maxPages, BASE + '/generalModule/shouted/_Data_End_Show.asp', parseEndPage, opts.filters || {});
+            result = await fetchPages(maxPages, BASE + '/generalmodule/shouted/_Data_Ping_Show.asp', parsePCPage, opts.filters || {});
           } else {
-            result = await fetchPages(maxPages, BASE + '/generalModule/shouted/_data_start_show.asp', parseJCPage, opts.filters || {});
+            result = await fetchPages(maxPages, BASE + '/generalmodule/shouted/_data_start_show.asp', parseJCPage, opts.filters || {});
           }
           
           // 存缓存

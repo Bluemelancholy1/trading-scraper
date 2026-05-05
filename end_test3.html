@@ -1,0 +1,544 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>平仓模块展示</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link href="/css/account.css" rel="stylesheet" type="text/css" />
+<script language="javascript" type="text/javascript" src="/js/jquery-1.9.1.min.js"></script>
+<script language="javascript" type="text/javascript" src="/js/base.js?2015-3-31"></script>
+<link type="text/css" href="/css/jquery.mCustomScrollbar.css" rel="stylesheet" />
+<script language="javascript" type="text/javascript" src="/js/jquery.mCustomScrollbar.js"></script>
+<style>
+*{font:14px/18px "Microsoft Yahei",Simsun,Arial,Helvetica,sans-serif;}
+html,body{margin:0px;padding:0px;height:100%;background:#272b3a;}
+.list{background: none repeat scroll 0 0 transparent;height: auto;min-height: 100%;overflow: hidden;}
+.item{overflow: hidden;padding-left: 10px;padding-right: 10px;position: relative;padding-top:10px;}
+.item .face{border: 1px solid #fff;margin-left: 0px;overflow: hidden;position: absolute;}
+.item .face img{width:50px;height:50px;}
+.box{margin: 22px auto 0;background: url("/images/pagebg.png") repeat scroll 0 0 transparent;}
+.box .title{height: 30px;line-height: 30px; background: url("/images/CardBg.png") repeat scroll 0px 0px transparent; color:#343434;}
+.box .title *{line-height: 30px;}
+.box .title .name{margin-left:60px;float:left;}
+.box .title .attention{float: right; text-decoration: none; padding-left:10px;padding-right:10px; text-indent: 0px; text-align: center; background: none repeat scroll 0px 0px #ed5565; color:#fff; height: 24px; line-height: 24px; margin-top: 3px; margin-right: 3px;}
+.box .title .no-attention{background:#c2c2c2;}
+.box .title .shoutedhistory{float: right; text-decoration: none; width: 65px; text-indent: 0px; text-align: center; background: none repeat scroll 0px 0px #66cc66; color:#fff; height: 24px; line-height: 24px; margin-top: 3px; margin-right: 3px;}
+.box .con{color: #000;line-height: 24px;padding: 10px;}
+.box .con .noabout{color: #777;}
+.box .title .Disable{background:#d2d2d2;color:#999;}
+.box .title .Coached{background:#2da5da;color:#fff;}
+
+.navarea{border-bottom: 1px solid #3a86c3;background: #207CD8;height:42px;line-height:42px;color: #fff;padding-left: 20px;min-width:650px;}
+.navarea a{color:#fff;font-size:14px;text-decoration:none;line-height:24px;width:72px;display: inline-block;padding-left: 15px;border-radius: 3px;background: url("/images/Mesbg.png") repeat scroll 0 0 transparent;margin-top: 9px}
+.navarea a.on{border-left: 3px solid #66CC66;}
+
+.area{margin-left:15px;margin-right:15px;min-width:620px;}
+.title{color:#808392;}
+.title span{line-height:38px;}
+.title span.data1{width:5%;display:inline-block;text-indent:25px;padding-left: 3px;;min-width:82px;}
+
+.area span.data2{width:15%;display:inline-block;min-width:115px;max-width: 143px;}
+.area span.data3{width:4%;display:inline-block;min-width:45px;}
+.area span.data4{width:4%;display:inline-block;min-width:50px;max-width: 62px}
+.area span.data5{width:6%;display:inline-block;min-width:45px;max-width:70px;}
+.area span.data6{width:6%;display:inline-block;min-width: 50px;}
+.area span.data7{width:9%;display:inline-block;}
+.area span.data8{width:9%;display:inline-block;}
+.area span.data9{width:15%;display:inline-block;min-width:115px;max-width:143px;}
+.area span.data10{width:6%;display:inline-block;min-width: 50px;}
+.area span.data11{width:6%;display:inline-block;}
+.area span.data12{width:13%;display:inline-block;max-width: 100px;min-width: 75px;}
+.area span.data13{width:2%;display:inline-block;}
+
+.dl ul{list-style: none;margin: 0;padding: 0;width: 100%;display: inline-block;}
+.dl ul li{list-style:none;margin:0;padding:0;width:100%;display:inline-block;border-radius: 3px;background:#373f52;margin-bottom: 5px;height: 38px;color: #dfe6f0;border-left: 3px solid #207CD8;}
+.dl ul li:hover{background:#eee;border-left: 3px solid #ed2a3f;color:#333;}
+.dl span{line-height:38px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+.dl span.data1{width: 7%;text-indent: 25px;min-width:82px;}
+.dl span.data5{width:6%;display:inline-block;min-width:45px;max-width:70px;text-overflow: ellipsis;white-space: nowrap;overflow: hidden;}
+.dl span.data13 a{line-height:38px;background: url(/generalModule/shouted/images/dot.png?2) no-repeat center center transparent;text-indent: -99999px;display: inline-block;width:20px;}
+.dl span.data12{min-width: 75px;max-width: 100px;text-overflow: ellipsis;white-space: nowrap;overflow: hidden;}
+
+.menu{display:none;padding: 8px;border-radius: 3px;background: #207CD8;position: absolute;text-align: center;}
+.menu a{color:#fff;text-decoration: none;width: 60px;float: left;}
+.menu a:hover{font-weight: bold;font-size: 14px;}
+
+.tool{float: right;margin-right: 15px;}
+.tool a{background-color: #ed2a3f;text-align: center;padding-left: 0;}
+.page{text-align: center;}
+.page a{color:#dfe6f0;}
+.dl ul li.page:hover a{color:#333;}
+</style>
+<script>
+	function MenuShow(ShoutedID,e)
+	{
+		$('.menu a').each(function(){
+			var t = $(this).attr("t");
+			if($(this).attr("c")=="1")
+			{
+				$(this).attr("href",t + ShoutedID);
+			}
+			else
+			{
+				$(this).attr("u",$.format(t,ShoutedID));
+			}
+		});
+		$('.menu').css({display:'block',top:$(e).offset().top-$('.menu').height()/2 + 10,left:$(e).offset().left - $('.menu').width() - 20});
+		$(document).bind('mouseup',function(e){
+			$('.menu').css('display','none');
+			$(document).unbind('mouseup');
+		});
+	}
+	
+	function ParentFancybox(url,width,height)
+	{
+		parent.$.fancybox({'href':url,'titleShow':false,'autoDimensions':false,'autoScale':false,'width':width,'height':height,'type':'iframe'});
+	}
+</script>
+</head>
+<body>
+	<div class="navarea">
+		<a href="javascript:void(0)" class="on">平仓提醒</a>
+		<div class="tool">
+			<a href="javascript:void(0)" onclick="ParentFancybox('/generalModule/shouted/_Data_Start_Show.asp?RoomID=7000',900,600)">建仓提醒</a>
+		</div>
+	</div>
+	
+	<div class="area">
+		<div class="title">
+			<span class="data1">单号</span>
+			<span class="data2">开仓时间</span>
+			<span class="data3">类型</span>
+			<span class="data4">仓位</span>
+			<span class="data5">商品</span>
+			<span class="data6">开仓点位</span>
+			<span class="data7">止损</span>
+			<span class="data8">止盈</span>
+			<span class="data9">平仓时间</span>
+			<span class="data10">平仓点位</span>
+			<span class="data11">获利点数</span>
+			<span class="data12">老师</span>
+			<span class="data13"></span>
+		</div>
+		
+		<div class="dl">
+			<ul>
+				
+					<li>
+						<span class="data1" title="#12788">#12788</span>
+						<span class="data2" title="2026/5/5 15:17:42">2026/5/5 15:17:42</span>
+						<span class="data3" title="多">多</span>
+						<span class="data4" title="10%">10%</span>
+						<span class="data5" title="美原油">美原油</span>
+						<span class="data6" title="10420">10420</span>
+						<span class="data7" title="10390">10390</span>
+						<span class="data8" title="1048010550">1048010550</span>
+						<span class="data9" title="2026/5/5 15:21:40">2026/5/5 15:21:40</span>
+						<span class="data10" title="0">0</span>
+						<span class="data11" title="-20">-20</span>
+						<span class="data12" title="山野老师">山野老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12788,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12783">#12783</span>
+						<span class="data2" title="2026/5/5 12:50:31">2026/5/5 12:50:31</span>
+						<span class="data3" title="多">多</span>
+						<span class="data4" title="10%">10%</span>
+						<span class="data5" title="小纳指">小纳指</span>
+						<span class="data6" title="2784527840">2784527840</span>
+						<span class="data7" title="27815">27815</span>
+						<span class="data8" title="2789027920">2789027920</span>
+						<span class="data9" title="2026/5/5 15:02:37">2026/5/5 15:02:37</span>
+						<span class="data10" title="27895">27895</span>
+						<span class="data11" title="50">50</span>
+						<span class="data12" title="山野老师">山野老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12783,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12784">#12784</span>
+						<span class="data2" title="2026/5/5 13:01:57">2026/5/5 13:01:57</span>
+						<span class="data3" title="多">多</span>
+						<span class="data4" title="10%">10%</span>
+						<span class="data5" title="恒指">恒指</span>
+						<span class="data6" title="2563525625">2563525625</span>
+						<span class="data7" title="25600">25600</span>
+						<span class="data8" title="2570025800">2570025800</span>
+						<span class="data9" title="2026/5/5 15:01:51">2026/5/5 15:01:51</span>
+						<span class="data10" title="25740">25740</span>
+						<span class="data11" title="130">130</span>
+						<span class="data12" title="山野老师">山野老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12784,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12786">#12786</span>
+						<span class="data2" title="2026/5/5 13:49:45">2026/5/5 13:49:45</span>
+						<span class="data3" title="空">空</span>
+						<span class="data4" title="10%">10%</span>
+						<span class="data5" title="美原油">美原油</span>
+						<span class="data6" title="104.4">104.4</span>
+						<span class="data7" title="104.9">104.9</span>
+						<span class="data8" title="103">103</span>
+						<span class="data9" title="2026/5/5 14:19:39">2026/5/5 14:19:39</span>
+						<span class="data10" title="104.9">104.9</span>
+						<span class="data11" title="-50">-50</span>
+						<span class="data12" title="羽木老师">羽木老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12786,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12785">#12785</span>
+						<span class="data2" title="2026/5/5 13:12:33">2026/5/5 13:12:33</span>
+						<span class="data3" title="多">多</span>
+						<span class="data4" title="10%">10%</span>
+						<span class="data5" title="美黄金">美黄金</span>
+						<span class="data6" title="45504551">45504551</span>
+						<span class="data7" title="4546.4">4546.4</span>
+						<span class="data8" title="45604570">45604570</span>
+						<span class="data9" title="2026/5/5 13:18:18">2026/5/5 13:18:18</span>
+						<span class="data10" title="0">0</span>
+						<span class="data11" title="-40">-40</span>
+						<span class="data12" title="山野老师">山野老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12785,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12782">#12782</span>
+						<span class="data2" title="2026/5/5 12:21:24">2026/5/5 12:21:24</span>
+						<span class="data3" title="空">空</span>
+						<span class="data4" title="10%">10%</span>
+						<span class="data5" title="美原油">美原油</span>
+						<span class="data6" title="1043010435">1043010435</span>
+						<span class="data7" title="10460">10460</span>
+						<span class="data8" title="1038010350">1038010350</span>
+						<span class="data9" title="2026/5/5 13:06:32">2026/5/5 13:06:32</span>
+						<span class="data10" title="10385">10385</span>
+						<span class="data11" title="50">50</span>
+						<span class="data12" title="山野老师">山野老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12782,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12781">#12781</span>
+						<span class="data2" title="2026/5/5 11:00:26">2026/5/5 11:00:26</span>
+						<span class="data3" title="空">空</span>
+						<span class="data4" title="%">%</span>
+						<span class="data5" title="恒指">恒指</span>
+						<span class="data6" title="25705">25705</span>
+						<span class="data7" title="25770">25770</span>
+						<span class="data8" title="25600">25600</span>
+						<span class="data9" title="2026/5/5 11:58:59">2026/5/5 11:58:59</span>
+						<span class="data10" title="25665">25665</span>
+						<span class="data11" title="40">40</span>
+						<span class="data12" title="大元老师">大元老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12781,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12780">#12780</span>
+						<span class="data2" title="2026/5/5 10:48:28">2026/5/5 10:48:28</span>
+						<span class="data3" title="多">多</span>
+						<span class="data4" title="%">%</span>
+						<span class="data5" title="美黄金">美黄金</span>
+						<span class="data6" title="4555">4555</span>
+						<span class="data7" title="4549">4549</span>
+						<span class="data8" title="4565">4565</span>
+						<span class="data9" title="2026/5/5 10:56:26">2026/5/5 10:56:26</span>
+						<span class="data10" title="4549">4549</span>
+						<span class="data11" title="-60">-60</span>
+						<span class="data12" title="大元老师">大元老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12780,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12779">#12779</span>
+						<span class="data2" title="2026/5/5 10:33:30">2026/5/5 10:33:30</span>
+						<span class="data3" title="多">多</span>
+						<span class="data4" title="%">%</span>
+						<span class="data5" title="恒指">恒指</span>
+						<span class="data6" title="25755">25755</span>
+						<span class="data7" title="25690">25690</span>
+						<span class="data8" title="25840">25840</span>
+						<span class="data9" title="2026/5/5 10:43:19">2026/5/5 10:43:19</span>
+						<span class="data10" title="25800">25800</span>
+						<span class="data11" title="45">45</span>
+						<span class="data12" title="大元老师">大元老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12779,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12778">#12778</span>
+						<span class="data2" title="2026/5/5 10:02:03">2026/5/5 10:02:03</span>
+						<span class="data3" title="多">多</span>
+						<span class="data4" title="%">%</span>
+						<span class="data5" title="恒指">恒指</span>
+						<span class="data6" title="25620">25620</span>
+						<span class="data7" title="26570">26570</span>
+						<span class="data8" title="25670-25750">25670-25750</span>
+						<span class="data9" title="2026/5/5 10:20:13">2026/5/5 10:20:13</span>
+						<span class="data10" title="25620">25620</span>
+						<span class="data11" title="100">100</span>
+						<span class="data12" title="安然老师">安然老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12778,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12777">#12777</span>
+						<span class="data2" title="2026/5/5 9:17:52">2026/5/5 9:17:52</span>
+						<span class="data3" title="空">空</span>
+						<span class="data4" title="%">%</span>
+						<span class="data5" title="恒指">恒指</span>
+						<span class="data6" title="25840">25840</span>
+						<span class="data7" title="25890">25890</span>
+						<span class="data8" title="25790-25700">25790-25700</span>
+						<span class="data9" title="2026/5/5 9:33:48">2026/5/5 9:33:48</span>
+						<span class="data10" title="140">140</span>
+						<span class="data11" title="700">700</span>
+						<span class="data12" title="安然老师">安然老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12777,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12776">#12776</span>
+						<span class="data2" title="2026/5/5 1:36:58">2026/5/5 1:36:58</span>
+						<span class="data3" title="空">空</span>
+						<span class="data4" title="%">%</span>
+						<span class="data5" title="美黄金">美黄金</span>
+						<span class="data6" title="4533">4533</span>
+						<span class="data7" title="4537">4537</span>
+						<span class="data8" title="4529-4523">4529-4523</span>
+						<span class="data9" title="2026/5/5 1:51:59">2026/5/5 1:51:59</span>
+						<span class="data10" title="4533">4533</span>
+						<span class="data11" title="0">0</span>
+						<span class="data12" title="夏美老师">夏美老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12776,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12775">#12775</span>
+						<span class="data2" title="2026/5/5 1:35:49">2026/5/5 1:35:49</span>
+						<span class="data3" title="空">空</span>
+						<span class="data4" title="%">%</span>
+						<span class="data5" title="小纳指">小纳指</span>
+						<span class="data6" title="27780">27780</span>
+						<span class="data7" title="27810">27810</span>
+						<span class="data8" title="27750-27710">27750-27710</span>
+						<span class="data9" title="2026/5/5 1:51:02">2026/5/5 1:51:02</span>
+						<span class="data10" title="27776">27776</span>
+						<span class="data11" title="0">0</span>
+						<span class="data12" title="夏美老师">夏美老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12775,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12774">#12774</span>
+						<span class="data2" title="2026/5/5 1:06:44">2026/5/5 1:06:44</span>
+						<span class="data3" title="空">空</span>
+						<span class="data4" title="%">%</span>
+						<span class="data5" title="美原油">美原油</span>
+						<span class="data6" title="105.67">105.67</span>
+						<span class="data7" title="105.97">105.97</span>
+						<span class="data8" title="105.27-104.67">105.27-104.67</span>
+						<span class="data9" title="2026/5/5 1:18:10">2026/5/5 1:18:10</span>
+						<span class="data10" title="105">105</span>
+						<span class="data11" title="67">67</span>
+						<span class="data12" title="夏美老师">夏美老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12774,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12772">#12772</span>
+						<span class="data2" title="2026/5/5 1:04:25">2026/5/5 1:04:25</span>
+						<span class="data3" title="多">多</span>
+						<span class="data4" title="%">%</span>
+						<span class="data5" title="小纳指">小纳指</span>
+						<span class="data6" title="27725">27725</span>
+						<span class="data7" title="27695">27695</span>
+						<span class="data8" title="27755-27825">27755-27825</span>
+						<span class="data9" title="2026/5/5 1:08:00">2026/5/5 1:08:00</span>
+						<span class="data10" title="27755">27755</span>
+						<span class="data11" title="30">30</span>
+						<span class="data12" title="夏美老师">夏美老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12772,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12773">#12773</span>
+						<span class="data2" title="2026/5/5 1:05:30">2026/5/5 1:05:30</span>
+						<span class="data3" title="空">空</span>
+						<span class="data4" title="%">%</span>
+						<span class="data5" title="美黄金">美黄金</span>
+						<span class="data6" title="4529">4529</span>
+						<span class="data7" title="4525">4525</span>
+						<span class="data8" title="4533-4549">4533-4549</span>
+						<span class="data9" title="2026/5/5 1:07:42">2026/5/5 1:07:42</span>
+						<span class="data10" title="4535">4535</span>
+						<span class="data11" title="60">60</span>
+						<span class="data12" title="夏美老师">夏美老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12773,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12769">#12769</span>
+						<span class="data2" title="2026/5/5 0:28:06">2026/5/5 0:28:06</span>
+						<span class="data3" title="空">空</span>
+						<span class="data4" title="%">%</span>
+						<span class="data5" title="小纳指">小纳指</span>
+						<span class="data6" title="27720">27720</span>
+						<span class="data7" title="27750">27750</span>
+						<span class="data8" title="27690-27550">27690-27550</span>
+						<span class="data9" title="2026/5/5 0:51:44">2026/5/5 0:51:44</span>
+						<span class="data10" title="27690">27690</span>
+						<span class="data11" title="30">30</span>
+						<span class="data12" title="夏美老师">夏美老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12769,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12771">#12771</span>
+						<span class="data2" title="2026/5/5 0:29:03">2026/5/5 0:29:03</span>
+						<span class="data3" title="多">多</span>
+						<span class="data4" title="%">%</span>
+						<span class="data5" title="美原油">美原油</span>
+						<span class="data6" title="105.35">105.35</span>
+						<span class="data7" title="105.05">105.05</span>
+						<span class="data8" title="105.85-108">105.85-108</span>
+						<span class="data9" title="2026/5/5 0:48:40">2026/5/5 0:48:40</span>
+						<span class="data10" title="106.1">106.1</span>
+						<span class="data11" title="75">75</span>
+						<span class="data12" title="夏美老师">夏美老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12771,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12770">#12770</span>
+						<span class="data2" title="2026/5/5 0:28:24">2026/5/5 0:28:24</span>
+						<span class="data3" title="空">空</span>
+						<span class="data4" title="%">%</span>
+						<span class="data5" title="美黄金">美黄金</span>
+						<span class="data6" title="4530">4530</span>
+						<span class="data7" title="4533">4533</span>
+						<span class="data8" title="4526-4470">4526-4470</span>
+						<span class="data9" title="2026/5/5 0:36:03">2026/5/5 0:36:03</span>
+						<span class="data10" title="4523">4523</span>
+						<span class="data11" title="70">70</span>
+						<span class="data12" title="夏美老师">夏美老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12770,this)">操作</a>
+							</span>
+						
+					</li>
+				
+					<li>
+						<span class="data1" title="#12766">#12766</span>
+						<span class="data2" title="2026/5/5 0:15:42">2026/5/5 0:15:42</span>
+						<span class="data3" title="空">空</span>
+						<span class="data4" title="%">%</span>
+						<span class="data5" title="美黄金">美黄金</span>
+						<span class="data6" title="4518">4518</span>
+						<span class="data7" title="4522">4522</span>
+						<span class="data8" title="-40">-40</span>
+						<span class="data9" title="2026/5/5 0:21:36">2026/5/5 0:21:36</span>
+						<span class="data10" title="4522">4522</span>
+						<span class="data11" title="-40">-40</span>
+						<span class="data12" title="夏美老师">夏美老师</span>
+						
+							<span class="data13">
+								<a href="javascript:void(0)" onclick="MenuShow(12766,this)">操作</a>
+							</span>
+						
+					</li>
+				
+				<li class="page">第1页/总318页 本页20条/总6346条 首页 上一页 <a href='/generalModule/shouted/_Data_End_Show.asp?RoomID=7000&page=2'>下一页</a> <a href='/generalModule/shouted/_Data_End_Show.asp?RoomID=7000&page=318'>末页</a><br/> <font color=''#FF0000''>1</font> <a href='/generalModule/shouted/_Data_End_Show.asp?RoomID=7000&page=2'>2</a> <a href='/generalModule/shouted/_Data_End_Show.asp?RoomID=7000&page=3'>3</a> <a href='/generalModule/shouted/_Data_End_Show.asp?RoomID=7000&page=4'>4</a> <a href='/generalModule/shouted/_Data_End_Show.asp?RoomID=7000&page=5'>5</a> <a href='/generalModule/shouted/_Data_End_Show.asp?RoomID=7000&page=6'>6</a> <a href='/generalModule/shouted/_Data_End_Show.asp?RoomID=7000&page=7'>7</a> <a href='/generalModule/shouted/_Data_End_Show.asp?RoomID=7000&page=8'>8</a> <a href='/generalModule/shouted/_Data_End_Show.asp?RoomID=7000&page=9'>9</a> <a href='/generalModule/shouted/_Data_End_Show.asp?RoomID=7000&page=10'>10</a> <a href='/generalModule/shouted/_Data_End_Show.asp?RoomID=7000&page=20'>>></a></li>
+			</ul>
+		</div>
+	</div>
+	
+	<!--	-->
+	<div align="center" style="color:#00FF00">服务器执行时间：348毫秒</div>
+
+	<div class="menu">
+		<div><!--a id="menu_edit" href="javascript:void(0)" u="" onclick="ParentFancybox($(this).attr('u'),560,510)" t="/GeneralModule/Shouted/_Data_Edit.asp?RoomID=7000&VID={0}&GoUrl=/GeneralModule/Shouted/_Data_End_Show.asp?RoomID=7000">编辑</a--></div>
+		<div><a id="menu_sms" href="javascript:void(0)" onclick="ParentFancybox($(this).attr('u'),560,510)" t="/GeneralModule/Shouted/_Data_SMS.asp?ShoutType=2&RoomID=7000&VID={0}&GoUrl=/GeneralModule/Shouted/_Data_End_Show.asp?RoomID=7000">短信通知</a></div>
+		<div><a id="menu_del" href="javascript:void(0)" c="1" t="?Method=Del&RoomID=7000&VID=">删除</a></div>
+	</div>
+</body>
+<script>
+</script>
+</html>
