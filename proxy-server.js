@@ -37,7 +37,26 @@ const CONTRACTS = {
   '小德指': { unit: 5,  unitCcy: 'EUR', rate: 9.10, priceDiv: 1   },  // 小德指，€5/点
 };
 
-// 陈少浏览器真实Cookie（2026-04-30 提取）
+// 陈少浏览器真实请求头（2026-05-06 从浏览器Network面板复制cURL获得）
+// 这是能让服务器放行的关键组合
+const BROWSER_HEADERS = {
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+  'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
+  'Cache-Control': 'no-cache',
+  'Connection': 'keep-alive',
+  'Cookie': 'Guest_Name=4ufwU803; ishow=iUserPass=135917&iUserName=4421&iAutoLogin=true; bg_img=images%2Fbg%2F23.jpg; ASPSESSIONIDACTRAADQ=BFOFLJDBGMOBNBKPGBALNHNG',
+  'Pragma': 'no-cache',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Sec-Fetch-User': '?1',
+  'Upgrade-Insecure-Requests': '1',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36 Edg/146.0.0.0',
+  'sec-ch-ua': '"Chromium";v="146", "Not-A.Brand";v="24", "Microsoft Edge";v="146"',
+  'sec-ch-ua-mobile': '?0',
+  'sec-ch-ua-platform': '"Windows"',
+};
+
 let aspSession = '';  // will be set by ASP login flow
 let loginCookie = 'ishow=iUserPass=135917&iUserName=4421&iAutoLogin=true';  // ishow from browser
 let guestCookie = 'Guest_Name=4ufwU803';  // Guest_Name from browser
@@ -135,6 +154,42 @@ function httpReq(targetUrl, method, postData, extraHeaders) {
   });
 }
 
+// 用陈少浏览器的完整请求头发请求（绕过CDN/WAF安全检测，2026-05-06）
+function httpReqBrowser(targetUrl, method, extraHeaders) {
+  return new Promise((resolve, reject) => {
+    try {
+      const pu = new URL(targetUrl);
+      const lib = pu.protocol === 'https:' ? https : http;
+      const headers = {
+        ...BROWSER_HEADERS,
+        ...(extraHeaders || {}),
+      };
+      const opt = {
+        hostname: pu.hostname, port: pu.port || 443,
+        path: pu.pathname + pu.search, method: method || 'GET',
+        headers, timeout: 25000,
+        rejectUnauthorized: false,
+      };
+      const req = lib.request(opt, res => {
+        // 不自动覆盖 Cookie（浏览器头里有完整的 Cookie）
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => resolve({ status: res.statusCode, body: data }));
+      });
+      req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
+      req.on('error', e => {
+        if (e.message.includes('ECONNREFUSED') || e.message.includes('ENOTFOUND') || e.message.includes('ETIMEDOUT')) {
+          reject(new Error('connect_fail'));
+        } else {
+          reject(e);
+        }
+      });
+      req.connectTimer = setTimeout(() => { req.destroy(); reject(new Error('connect_timeout')); }, 8000);
+      req.end();
+    } catch(e) { reject(e); }
+  });
+}
+
 function getFullCookie() {
   return [aspSession, loginCookie].filter(Boolean).join('; ');
 }
@@ -207,8 +262,10 @@ function parseJCPage(html) {
   return rows;
 }
 
-// --- 解析平仓提醒（平仓点位数据源） ---
-function parsePCPage(html) {
+// --- 解析平仓完整数据（含止损止盈，2026-05-06 新路径）---
+// URL: /generalmodule/shouted/_Data_End_Show.asp
+// 字段：data2开仓时间, data3方向, data5商品, data6开仓点位, data7止损, data8止盈, data9平仓时间, data10平仓点位, data12老师
+function parseEndPage(html) {
   const rows = [];
   const re = /<li>([\s\S]*?)<\/li>/g;
   let m;
@@ -224,6 +281,73 @@ function parsePCPage(html) {
     const stopLoss  = get(/class="data7"[^>]*title="([^"]+)"/).replace(/\u00a0/g, ' ');
     const takeProfit = get(/class="data8"[^>]*title="([^"]+)"/).replace(/\u00a0/g, ' ');
     const closeTime = get(/class="data9"[^>]*title="([^"]+)"/);
+    // data10可能是input或span
+    let closePrice = get(/class="data10"[^>]*title="([^"]+)"/);
+    if (!closePrice) {
+      const d10 = li.match(/class="data10"[\s\S]*?<\/span>/);
+      if (d10) { const v = d10[0].match(/value="([^"]*)"/); closePrice = v ? v[1].trim() : ''; }
+    }
+    const teacher   = get(/class="data12"[^>]*title="([^"]+)"/);
+    const profitPtsRaw = get(/class="data11"[^>]*title="([^"]+)"/); // 老师填写的获利点数
+    
+    // 智能拆分拼接的开仓价
+    let openPrice = rawOpen;
+    const rawNum = rawOpen.replace(/\D/g, '');
+    if (rawNum.length >= 8 && rawNum.length <= 14) {
+      openPrice = rawNum.substring(0, Math.ceil(rawNum.length / 2));
+    }
+    
+    const isClosed = !!(closePrice && closePrice !== '0');
+    // 用老师填的获利点数，如果为空或0则自己算
+    let profitPts = '';
+    if (profitPtsRaw && profitPtsRaw !== '0') {
+      profitPts = profitPtsRaw;
+    } else if (isClosed && openPrice && closePrice) {
+      const op = parseFloat(openPrice);
+      const cp = parseFloat(closePrice);
+      if (!isNaN(op) && !isNaN(cp) && op > 0 && cp > 0) {
+        const diff = direction === '多' ? (cp - op) : (op - cp);
+        profitPts = diff.toFixed(2);
+      }
+    }
+    
+    // 调试：输出恒指记录
+    if (product && product.includes('恒')) {
+      log('info', 'PARSE HSI: product=' + product + ' rawOpen=' + rawOpen + ' profitPtsRaw=' + JSON.stringify(profitPtsRaw) + ' closePrice=' + closePrice + ' final profitPts=' + profitPts);
+    }
+    
+    if (openPrice && direction) {
+      rows.push({
+        openTime, direction, product, openPrice,
+        stopLoss: stopLoss || '',
+        takeProfit: takeProfit || '',
+        closeTime: closeTime || '', closePrice: closePrice || '',
+        profitPts: profitPts, teacher: teacher || '',
+        source: 'end', isClosed,
+      });
+    }
+  }
+  return rows;
+}
+
+// --- 解析平仓提醒（平仓点位数据源，2026-05-06 新路径适配） ---
+function parsePCPage(html) {
+  const rows = []
+  const re = /<li>([\s\S]*?)<\/li>/g;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const li = m[1];
+    const get = re2 => { const r = li.match(re2); return r ? r[1].trim() : '' };
+    
+    // 新路径字段映射（/generalmodule/shouted/_Data_Ping_Show.asp）
+    // data2=开仓时间, data3=类型, data5=商品, data6=开仓点位
+    // data9=平仓时间, data10=平仓点位(input), data12=老师
+    const openTime  = get(/class="data2"[^>]*title="([^"]+)"/);
+    if (!openTime) continue;
+    const direction = get(/class="data3"[^>]*title="([^"]+)"/);
+    const product   = get(/class="data5"[^>]*title="([^"]+)"/);
+    const rawOpen   = get(/class="data6"[^>]*title="([^"]+)"/);
+    const closeTime = get(/class="data9"[^>]*title="([^"]+)"/);
     const teacher   = get(/class="data12"[^>]*title="([^"]+)"/);
     
     // 平仓价格从 data10 span 里的 input value 提取
@@ -234,7 +358,7 @@ function parsePCPage(html) {
       if (v) closePrice = v[1].trim();
     }
     
-    // 智能拆分
+    // 智能拆分拼接的开仓价
     let openPrice = rawOpen;
     const rawNum = rawOpen.replace(/\D/g, '');
     if (rawNum.length >= 8 && rawNum.length <= 14) {
@@ -244,8 +368,8 @@ function parsePCPage(html) {
     if (openPrice && direction) {
       rows.push({
         openTime, direction, product, openPrice,
-        stopLoss: stopLoss || '',
-        takeProfit: takeProfit || '',
+        stopLoss: '',  // 新路径无止损止盈字段
+        takeProfit: '',
         closeTime: closeTime || '', closePrice: closePrice || '',
         profitPts: '', teacher: teacher || '',
         source: 'pc', isClosed: true,
@@ -261,6 +385,41 @@ function extractTotal(html) {
   const m2 = html.match(/总(\d+)页/);
   if (m2) return parseInt(m2[1]) * 10;
   return 10;
+}
+
+// --- 用浏览器请求头抓取单页数据（绕过CDN/WAF安全检测，2026-05-06）---
+async function fetchPageBrowser(page, url, parser, filters) {
+  const params = new URLSearchParams({ roomid: String(ROOM_ID), page: String(page) });
+  if (filters) {
+    if (filters.pt) params.set('pt', filters.pt);
+    if (filters.et) params.set('et', filters.et);
+  }
+  const fullUrl = url + (url.includes('?') ? '&' : '?') + params.toString();
+  log('data', 'GET: ' + fullUrl.replace(BASE, ''));
+  const resp = await httpReqBrowser(fullUrl, 'GET');
+  if (resp.status !== 200) throw new Error('HTTP ' + resp.status + ': ' + resp.body.substring(0, 100));
+  const rows = parser(resp.body);
+  return { rows, totalRows: extractTotal(resp.body) };
+}
+
+// --- 抓取多页数据（浏览器请求头）---
+async function fetchPagesBrowser(maxPages, url, parser, filters) {
+  log('info', 'fetchPagesBrowser called with url=' + url + ' parser=' + (parser.name || 'anonymous'));
+  const allRows = [];
+  let totalRows = 0;
+  for (let p = 1; p <= maxPages; p++) {
+    try {
+      const r = await fetchPageBrowser(p, url, parser, filters);
+      allRows.push(...r.rows);
+      totalRows = r.totalRows;
+      if (p === 1) log('ok', url.includes('start') ? 'JC' : 'PC' + ' total=' + totalRows);
+      if (r.rows.length < 10) break;
+    } catch(e) {
+      log('warn', 'Page ' + p + ' error: ' + e.message);
+      break;
+    }
+  }
+  return { rows: allRows, totalRows };
 }
 
 // --- 抓取单页（支持日期过滤） ---
@@ -298,88 +457,121 @@ async function fetchPages(maxPages, url, parser, filters) {
 }
 
 // --- 解析平仓结算页（完整13列，含止损止盈，2026-05-05新增）---
-function parseEndPage(html) {
-  const rows = [];
-  const re = /<li>([\s\S]*?)<\/li>/g;
-  let m;
-  while ((m = re.exec(html)) !== null) {
-    const li = m[1];
-    const get = re2 => { const r = li.match(re2); return r ? r[1].trim() : ''; };
+// --- 用浏览器请求头抓取多页（绕过CDN/WAF安全检测，2026-05-06突破）---
+async function fetchWithBrowserHeaders(maxPages) {
+  // 平仓提醒页（新路径，有平仓时间/点位/获利，无止损止盈）
+  const pcUrl = BASE + '/generalmodule/shouted/_Data_Ping_Show.asp';
+  const result = await fetchPagesBrowser(maxPages, pcUrl, parsePCPage, null);
+  return result.rows;
+}
+
+// Normalize timestamp to minute precision for fuzzy matching
+function tsMinute(str) {
+  // "2026/5/6 13:04:55" -> "2026/5/6 13:04" (drop seconds)
+  return str.substring(0, str.lastIndexOf(':'));
+}
+
+// fuzzy product name matching (some pages use "原油" instead of "美原油" etc.)
+const PRODUCT_ALIASES = {
+  '原油': '美原油',
+  '小道指': '小纳指',  // may appear as alias
+  '黄金': '美黄金',
+};
+function normProduct(p) { return PRODUCT_ALIASES[p] || p; }
+
+// --- 合并模式：建仓(止损止盈) + 平仓(平仓点位) ---
+// 合并策略：两边数据按"开仓时间(±2分钟) + 商品 + 方向"模糊匹配
+async function fetchMerged(filters, maxPages) {
+  // 合并模式默认抓更多页（覆盖更长历史，确保有时间重叠）
+  maxPages = maxPages || 10;
+  
+  const jcUrl = BASE + '/generalmodule/shouted/_data_start_show.asp';
+  const pcUrl = BASE + '/generalmodule/shouted/_Data_Ping_Show.asp';
+  
+  let jcRows = [], pcRows = [], totalRows = 0;
+  try {
+    const jcResult = await fetchPagesBrowser(maxPages, jcUrl, parseJCPage, filters);
+    jcRows = jcResult.rows;
+    log('ok', 'JC rows=' + jcRows.length);
+  } catch(e) {
+    log('warn', 'JC fetch failed: ' + e.message);
+  }
+  try {
+    const pcResult = await fetchPagesBrowser(maxPages, pcUrl, parsePCPage, filters);
+    pcRows = pcResult.rows;
+    totalRows = pcResult.totalRows;
+    log('ok', 'PC rows=' + pcRows.length + ' total=' + totalRows);
+  } catch(e) {
+    log('warn', 'PC fetch failed: ' + e.message);
+  }
+
+  // Merge: for each PC row, find JC match by product+direction+time window (±10min)
+  // JC rows stored with their original Date for precise time comparison
+  const jcWithDate = jcRows.map(r => ({ ...r, _date: new Date(r.openTime) }));
+  const merged = [];
+  let matched = 0, unmatched = 0;
+  
+  for (const pr of pcRows) {
+    const prDate = new Date(pr.openTime);
+    const prProd = normProduct(pr.product);
     
-    const openTime  = get(/class="data2"[^>]*title="([^"]+)"/);
-    if (!openTime) continue;
-    const direction = get(/class="data3"[^>]*title="([^"]+)"/);
-    const product   = get(/class="data5"[^>]*title="([^"]+)"/);
-    const rawOpen   = get(/class="data6"[^>]*title="([^"]+)"/);
-    const stopLoss  = get(/class="data7"[^>]*title="([^"]+)"/).replace(/\u00a0/g, ' ');
-    const takeProfit = get(/class="data8"[^>]*title="([^"]+)"/).replace(/\u00a0/g, ' ');
-    const closeTime = get(/class="data9"[^>]*title="([^"]+)"/);
-    const teacher   = get(/class="data12"[^>]*title="([^"]+)"/);
-    // 平仓价格从 data10 span 里的 title 提取
-    let closePrice = get(/class="data10"[^>]*title="([^"]+)"/);
-    // 提取data11（老师填写的获利点数，优先级最高）
-    const teacherProfit = get(/class="data11"[^>]*title="([^"]+)"/).replace(/\u00a0/g, ' ');
-    // 如果没有平仓点位但有老师填的获利点数，用"未填"标记
-    if (!closePrice && teacherProfit) {
-      closePrice = '未填写';
+    // Find closest JC record within ±10 minutes, same product+direction
+    let best = null, bestDiff = Infinity;
+    for (const jc of jcWithDate) {
+      if (normProduct(jc.product) !== prProd) continue;
+      if (jc.direction !== pr.direction) continue;
+      const diff = Math.abs(prDate - jc._date);
+      if (diff < bestDiff && diff <= 10 * 60 * 1000) { // within 10 minutes
+        bestDiff = diff;
+        best = jc;
+      }
     }
     
-    // 智能拆分
-    let openPrice = rawOpen;
-    const rawNum = rawOpen.replace(/\D/g, '');
-    if (rawNum.length >= 8 && rawNum.length <= 14) {
-      openPrice = rawNum.substring(0, Math.ceil(rawNum.length / 2));
+    if (best) {
+      pr.stopLoss = best.stopLoss;
+      pr.takeProfit = best.takeProfit;
+      matched++;
+    } else {
+      unmatched++;
     }
-    
-    if (openPrice && direction) {
-      rows.push({
-        openTime, direction, product, openPrice,
-        stopLoss: stopLoss || '',
-        takeProfit: takeProfit || '',
-        closeTime: closeTime || '', closePrice: closePrice || '',
-        teacherProfit: teacherProfit || '',  // 老师填写的获利点数
-        profitPts: '', teacher: teacher || '',
-        source: 'end', isClosed: true,
+    merged.push(pr);
+  }
+
+  // Mark closed JC records (those with a PC match within ±10min)
+  const closedSet = new Set();
+  for (const pr of pcRows) {
+    const prDate = new Date(pr.openTime);
+    const prProd = normProduct(pr.product);
+    for (const jc of jcWithDate) {
+      if (normProduct(jc.product) !== prProd) continue;
+      if (jc.direction !== pr.direction) continue;
+      if (Math.abs(prDate - jc._date) <= 10 * 60 * 1000) {
+        closedSet.add(jc.openTime + '|' + jc.product + '|' + jc.direction);
+      }
+    }
+  }
+  
+  // Append unclosed JC records (no PC match within ±10min)
+  for (const jc of jcWithDate) {
+    const key = jc.openTime + '|' + jc.product + '|' + jc.direction;
+    if (!closedSet.has(key)) {
+      merged.push({
+        ...jc,
+        _date: undefined,
+        isClosed: false,
+        closeTime: '',
+        closePrice: '',
+        profitPts: '持仓中',
+        profitAmt: '—'
       });
     }
   }
-  return rows;
-}
 
-// --- 合并模式：建仓+平仓结算（2026-05-05：改用_Data_End_Show.asp获取完整13列含SL/TP）---
-async function fetchMerged(filters, maxPages) {
-  maxPages = maxPages || 8; // 默认8页=80条
-  // 平仓结算页（完整13列，含止损/止盈）- 用新的End页替代旧的Ping页
-  const endR = await fetchPages(maxPages, BASE + '/generalModule/shouted/_Data_End_Show.asp', parseEndPage, filters);
-  log('ok', 'END loaded ' + endR.rows.length + ' rows (full 13 columns with SL/TP)');
-  
+  log('ok', 'Merged: ' + merged.length + ' rows (matched SL/TP=' + matched + ' unmatched=' + unmatched + ')');
+
   // 计算获利点数 & 盈亏金额
-  const merged = endR.rows.map(r => {
-    // 优先使用老师填写的获利点数（data11）
-    if (r.teacherProfit && r.teacherProfit.trim() !== '') {
-      r.profitPts = r.teacherProfit;
-      // 也需要计算金额 - 先估算平仓点位
-      const cv = CONTRACTS[r.product] || {};
-      if (cv.unit) {
-        // 从开仓点位和获利点数估算
-        const openNum = parseFloat(r.openPrice);
-        const pts = parseFloat(r.teacherProfit);
-        if (!isNaN(openNum) && !isNaN(pts)) {
-          let estClose = openNum;
-          if (r.direction === '多') estClose = openNum + pts;
-          else if (r.direction === '空') estClose = openNum - pts;
-          const div = cv.priceDiv || 1;
-          const amount = pts * cv.unit * cv.rate;
-          r.profitAmt = amount > 0 ? '+¥' + amount.toFixed(0) : '¥' + amount.toFixed(0);
-        }
-      }
-      return r;
-    }
-    
-    // 计算获利点数 & 盈亏金额(¥)
-    // pts: 原始价格差值（美原油=小点数×1，其他=整点×priceDiv）
-    // unit: 每小点/整点的美元/HKD价值
-    if (r.openPrice && r.closePrice) {
+  for (const r of merged) {
+    if (r.openPrice && r.closePrice && r.closePrice !== '0' && r.isClosed !== false) {
       const cv = CONTRACTS[r.product] || {};
       const div = cv.priceDiv || 1;
       const o = parseFloat(r.openPrice) / div;
@@ -389,24 +581,21 @@ async function fetchMerged(filters, maxPages) {
         if (r.direction === '多') pts = c - o;
         else if (r.direction === '空') pts = o - c;
         r.profitPts = pts > 0 ? '+' + pts.toFixed(2) : pts.toFixed(2);
-
-        // 盈亏金额 = 点数 × unit × 汇率，转人民币
         if (cv.unit) {
           const amount = pts * cv.unit * cv.rate;
           r.profitAmt = amount > 0 ? '+¥' + amount.toFixed(0) : '¥' + amount.toFixed(0);
         } else {
-          // 未知品种：标记点数但无法算金额
           r.profitAmt = '未知品种';
         }
       }
+    } else {
+      r.profitPts = r.profitPts || '持仓中';
+      r.profitAmt = r.profitAmt || '—';
     }
-    return r;
-  });
-  
-  // --- 服务端日期过滤（真正按开仓时间过滤，ASP的pt参数无效，改用Node.js过滤） ---
-  // 标准化日期：统一成 YYYY-MM-DD 格式再比较（处理 ASP 返回的 2026/4/17 和前端传来的 2026-04-17）
+  }
+
+  // 服务端日期过滤（标准化 YYYY-MM-DD）
   function normDate(str) {
-    // 输入如 "2026/4/17" 或 "2026/04/17" → 输出 "2026-04-17"
     const parts = str.split('/');
     return parts[0] + '-' + String(parts[1]).padStart(2, '0') + '-' + String(parts[2]).padStart(2, '0');
   }
@@ -421,7 +610,7 @@ async function fetchMerged(filters, maxPages) {
         if (fEt && d > fEt) return false;
         return true;
       });
-      log('info', `Date filter: ${fPt || '*'} ~ ${fEt || '*'} → ${filtered.length} rows (from ${merged.length})`);
+      log('info', 'Date filter: ' + (fPt||'*') + '~' + (fEt||'*') + ' => ' + filtered.length + ' rows');
     }
   }
 
@@ -592,12 +781,13 @@ const server = http.createServer((req, res) => {
             res.end(JSON.stringify({ ok: false, authError: true, error: '请先验证应用密码' }));
             return;
           }
-          if (!aspSession) throw new Error('Not logged in. POST /login first.');
+          // 用浏览器请求头抓取（绕过CDN/WAF安全检测，2026-05-06突破）
+          // 不再用Puppeteer，直接用陈少浏览器的完整请求头组合
           const opts = JSON.parse(body || '{}');
           const { mode = 'merged' } = opts;
+          const maxPages = Math.min(opts.pages || 8, 50);
           
           // 缓存检查：5分钟内相同请求直接返回
-          const maxPages = Math.min(opts.pages || 8, 50);
           const cacheKey = `${mode}|${maxPages}|${JSON.stringify(opts.filters || {})}`;
           if (cachedFetch && cachedFetch.key === cacheKey && Date.now() - cachedFetch.ts < CACHE_TTL) {
             log('info', 'Cache hit (' + Math.round((CACHE_TTL - (Date.now() - cachedFetch.ts)) / 1000) + 's left)');
@@ -608,12 +798,45 @@ const server = http.createServer((req, res) => {
           
           let result;
           if (mode === 'merged') {
-            result = await fetchMerged(opts.filters || {}, maxPages);
+            // 直接用 /generalmodule/shouted/_Data_End_Show.asp（13字段含止损止盈）
+            const endUrl = BASE + '/generalmodule/shouted/_Data_End_Show.asp';
+            result = await fetchPagesBrowser(maxPages, endUrl, parseEndPage, opts.filters || {});
           } else if (mode === 'pc') {
-            // 使用平仓结算页（完整13列含SL/TP）
-            result = await fetchPages(maxPages, BASE + '/generalModule/shouted/_Data_End_Show.asp', parseEndPage, opts.filters || {});
+            const pcUrl = BASE + '/generalmodule/shouted/_Data_Ping_Show.asp';
+            result = await fetchPagesBrowser(maxPages, pcUrl, parsePCPage, opts.filters || {});
           } else {
-            result = await fetchPages(maxPages, BASE + '/generalModule/shouted/_data_start_show.asp', parseJCPage, opts.filters || {});
+            const jcUrl = BASE + '/generalmodule/shouted/_data_start_show.asp';
+            result = await fetchPagesBrowser(maxPages, jcUrl, parseJCPage, opts.filters || {});
+          }
+          
+          // 计算获利金额（profitPts 已在 parseEndPage 里设置）
+          for (const r of result.rows) {
+            if (r.product === '恒指' && r.openPrice === '26060') {
+              log('info', 'DEBUG 恒指 26060: profitPts=' + JSON.stringify(r.profitPts) + ' closePrice=' + r.closePrice);
+            }
+            if (r.profitPts && r.profitPts !== '') {
+              // 已有获利点数，直接算金额
+              const c = CONTRACTS[r.product] || CONTRACTS['恒指'];
+              const priceDiv = c.priceDiv || 1;
+              const unit = c.unit || 1;
+              const rate = c.rate || 1;
+              const profitAmt = parseFloat(r.profitPts) / priceDiv * unit * rate;
+              r.profitAmt = profitAmt.toFixed(2);
+            } else if (r.closePrice && r.closePrice !== '0' && r.openPrice) {
+              // 没有获利点数，自己算
+              const op = parseFloat(r.openPrice);
+              const cp = parseFloat(r.closePrice);
+              if (!isNaN(op) && !isNaN(cp) && op > 0 && cp > 0) {
+                const diff = r.direction === '多' ? (cp - op) : (op - cp);
+                r.profitPts = diff.toFixed(2);
+                const c = CONTRACTS[r.product] || CONTRACTS['恒指'];
+                const priceDiv = c.priceDiv || 1;
+                const unit = c.unit || 1;
+                const rate = c.rate || 1;
+                const profitAmt = diff / priceDiv * unit * rate;
+                r.profitAmt = profitAmt.toFixed(2);
+              }
+            }
           }
           
           // 存缓存

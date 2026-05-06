@@ -1,36 +1,14 @@
 const https = require('https');
-const fs = require('fs');
-
-const aspSession = 'ASPSESSIONIDCARTDBCR=EMIDGGEBLODJMDJMDIIDOGIO';
-const loginCookie = 'ishow=iUserPass=135917&iUserName=4421&iAutoLogin=true';
-const cookie = aspSession + '; ' + loginCookie;
-
-console.log('Testing cookie:', cookie.substring(0, 50) + '...');
-
-const opts = {
-  hostname: 'qh.yemacaijing.net',
-  port: 443,
-  path: '/generalModule/shouted/_Data_End_Show.asp?roomid=7000&page=1',
-  method: 'GET',
-  headers: {
-    'Cookie': cookie,
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-  },
-  rejectUnauthorized: false
+const url = 'https://qh.yemacaijing.net/_Data_End_Show.asp?roomid=7000&page=1';
+const headers = {
+  'Cookie': 'Guest_Name=4ufwU803; ishow=iUserPass=135917&iUserName=4421&iAutoLogin=true; bg_img=images%2Fbg%2F23.jpg; ASPSESSIONIDACTRAADQ=BFOFLJDBGMOBNBKPGBALNHNG',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
 };
-
-https.request(opts, res => {
-  let data = '';
-  res.on('data', c => data += c);
+https.get(url, { headers }, res => {
+  let d = '';
+  res.on('data', c => d += c);
   res.on('end', () => {
-    console.log('Status:', res.statusCode);
-    console.log('Length:', data.length);
-    console.log('Has 请注册:', data.includes('请注册'));
-    if (data.length < 500) {
-      console.log('Body:', data);
-    } else {
-      fs.writeFileSync('cookie_test.html', data, 'latin1');
-      console.log('Saved', data.length, 'bytes to cookie_test.html');
-    }
+    console.log('HTTP', res.statusCode, '| Size:', d.length);
+    console.log('First 200 chars:', d.slice(0, 200));
   });
-}).end();
+}).on('error', e => console.log('ERR:', e.message));
