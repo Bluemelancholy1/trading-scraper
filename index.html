@@ -470,8 +470,6 @@ function applyFilters() {
   const dir    = document.getElementById('fDir').value;
   const product= document.getElementById('fProduct').value.trim();
 
-  console.log('[筛选] startD:', startD, 'endD:', endD, 'teacher:', teacher, '总数据:', allRows.length);
-
   filteredRows = allRows.filter(row => {
     if (startD) {
       const p = row.openTime.split(' ')[0].split('/');
@@ -488,8 +486,6 @@ function applyFilters() {
     if (product && !row.product.includes(product)) return false;
     return true;
   });
-
-  console.log('[筛选] 结果:', filteredRows.length, '条');
 
   page = 1;
   renderTable(filteredRows);
