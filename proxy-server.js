@@ -38,7 +38,7 @@ const CONTRACTS = {
 };
 
 // 陈少浏览器真实Cookie（2026-04-30 提取）
-let aspSession = 'ASPSESSIONIDCAQSBBDQ=OCCKDKJAJDDBBAPNLBHEHILF';  // ASPSessionID from browser
+let aspSession = '';  // will be set by ASP login flow
 let loginCookie = 'ishow=iUserPass=135917&iUserName=4421&iAutoLogin=true';  // ishow from browser
 let guestCookie = 'Guest_Name=4ufwU803';  // Guest_Name from browser
 let appLoggedIn = false;   // 默认未登录，输入正确密码后解锁
@@ -509,6 +509,9 @@ const server = http.createServer((req, res) => {
     // GET /lock — 锁屏
     if (urlPath === '/lock' && req.method === 'GET') {
       appLoggedIn = false;
+      aspSession = '';
+      loginCookie = '';
+      loginTime = 0;
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
       return;
