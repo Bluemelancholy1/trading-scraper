@@ -715,7 +715,10 @@ function stopAR() {
 }
 
 // === Remote config banner ===
+let _bannerLoaded = false;
 async function loadRemoteBanner() {
+  if (_bannerLoaded) return;
+  _bannerLoaded = true;
   try {
     const cfg = await api('/config');
     if (cfg.latestVersion && cfg.currentVersion && cfg.latestVersion !== cfg.currentVersion) {

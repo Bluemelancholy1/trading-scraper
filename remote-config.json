@@ -1,1 +1,7 @@
-{"latestVersion":"1.0.9","message":"修复ASP Session自动刷新，不再需要手动提供Cookie","updateUrl":"","password":"135917","enabled":true}
+{
+  "latestVersion": "1.0.9",
+  "message": "",
+  "updateUrl": "",
+  "password": "135917",
+  "enabled": true
+}
