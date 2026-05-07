@@ -44,7 +44,7 @@ const BROWSER_HEADERS = {
   'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
   'Cache-Control': 'no-cache',
   'Connection': 'keep-alive',
-  'Cookie': 'Guest_Name=4ufwU803; ishow=iUserPass=135917&iUserName=4421&iAutoLogin=true; bg_img=images%2Fbg%2F23.jpg; ASPSESSIONIDACTRAADQ=BFOFLJDBGMOBNBKPGBALNHNG',
+  'Cookie': 'Guest_Name=4ufwU803; ishow=iUserPass=135917&iUserName=4421&iAutoLogin=true; bg_img=images%2Fbg%2F23.jpg; ASPSESSIONIDAATQDADR=DAFBHNOBDOCEGDDAHKKOKCND',
   'Pragma': 'no-cache',
   'Sec-Fetch-Dest': 'document',
   'Sec-Fetch-Mode': 'navigate',
@@ -171,7 +171,20 @@ function httpReqBrowser(targetUrl, method, extraHeaders) {
         rejectUnauthorized: false,
       };
       const req = lib.request(opt, res => {
-        // 不自动覆盖 Cookie（浏览器头里有完整的 Cookie）
+        // 自动捕获 Set-Cookie 并更新 BROWSER_HEADERS（保持 session 新鲜）
+        const sc = res.headers['set-cookie'];
+        if (sc) {
+          for (const c of sc) {
+            const val = c.split(';')[0];
+            if (val.includes('ASPSESSIONID')) {
+              const parts = (BROWSER_HEADERS['Cookie'] || '').split(';').map(s => s.trim()).filter(Boolean);
+              const updated = parts.filter(p => !p.startsWith('ASPSESSIONID'));
+              updated.push(val);
+              BROWSER_HEADERS['Cookie'] = updated.join('; ');
+              log('info', 'Session refreshed: ' + val);
+            }
+          }
+        }
         let data = '';
         res.on('data', c => data += c);
         res.on('end', () => resolve({ status: res.statusCode, body: data }));
@@ -784,6 +797,9 @@ const server = http.createServer((req, res) => {
           // 用浏览器请求头抓取（绕过CDN/WAF安全检测，2026-05-06突破）
           // 不再用Puppeteer，直接用陈少浏览器的完整请求头组合
           const opts = JSON.parse(body || '{}');
+          
+          // 确保 session 有效（过期自动续）
+          await ensureSession();
           const { mode = 'merged' } = opts;
           const maxPages = Math.min(opts.pages || 8, 50);
           
@@ -862,11 +878,39 @@ const server = http.createServer((req, res) => {
 
 server.on('error', e => log('err', 'Server: ' + e.message));
 
-server.listen(PORT, '0.0.0.0', () => {
+// === 自动刷新 ASP Session（2026-05-07 新增，解决 session 过期问题）===
+let lastSessionRefresh = 0;
+const SESSION_TTL = 20 * 60 * 1000; // 20分钟刷新一次
+
+async function refreshSession() {
+  try {
+    log('info', 'Refreshing ASP session...');
+    const resp = await httpReqBrowser(BASE + '/', 'GET');
+    lastSessionRefresh = Date.now();
+    log('ok', 'Session refreshed (status=' + resp.status + ', size=' + resp.body.length + ')');
+    return true;
+  } catch(e) {
+    log('warn', 'Session refresh failed: ' + e.message);
+    return false;
+  }
+}
+
+// 主动刷新（在 /fetch 前检查，过期自动续）
+async function ensureSession() {
+  if (Date.now() - lastSessionRefresh > SESSION_TTL) {
+    await refreshSession();
+  }
+}
+
+server.listen(PORT, '0.0.0.0', async () => {
   log('ok', `Server v3 started on http://localhost:${PORT}`);
   log('info', `App version: ${APP_VERSION}`);
   log('info', `Remote config: ${CONFIG_URL}`);
   startConfigPolling();
+  // 启动时自动刷新 session（ishow 带 iAutoLogin=true 会触发服务端自动登录）
+  await refreshSession();
+  // 每20分钟自动刷新
+  setInterval(refreshSession, SESSION_TTL);
 });
 
 process.on('uncaughtException', e => { log('err', 'FATAL: ' + e.message); process.exit(1); });
