@@ -1,6 +1,6 @@
 {
   "name": "trading-scraper",
-  "version": "1.0.10",
+  "version": "1.0.12",
   "description": "交易数据抓取工具",
   "author": "陈少",
   "main": "main.js",
