@@ -306,8 +306,31 @@ function parseEndPage(html) {
     // 智能拆分拼接的开仓价
     let openPrice = rawOpen;
     const rawNum = rawOpen.replace(/\D/g, '');
+    const opDigitCount = rawNum.length;  // 开仓价数字位数，用于拆分止损止盈
     if (rawNum.length >= 8 && rawNum.length <= 14) {
       openPrice = rawNum.substring(0, Math.ceil(rawNum.length / 2));
+    }
+    
+    // 智能拆分拼接的止盈值（ASP服务器Bug：data8 title有时粘上后续字段值）
+    // 例：TP=2867028730 → 应拆为 TP=28670（与openPrice=28600位数一致）
+    let tp = takeProfit;
+    const tpDigits = takeProfit.replace(/^-/, '').replace(/[^\d]/g, '');
+    if (tpDigits.length > 0 && !takeProfit.includes('-') && opDigitCount >= 3) {
+      if (tpDigits.length > opDigitCount + 1) {
+        tp = tp.substring(0, opDigitCount);
+        log('data', 'Split glued TP: ' + takeProfit + ' → ' + tp + ' (opDigits=' + opDigitCount + ')');
+      }
+    }
+    
+    // 智能拆分拼接的止损值（同样的ASP Bug）
+    let sl = stopLoss;
+    const slDigits = stopLoss.replace(/^-/, '').replace(/[^\d.]/g, '');
+    if (slDigits.length > 0 && !stopLoss.includes('-') && opDigitCount >= 3) {
+      const slPureDigits = slDigits.replace(/\./g, '');
+      if (slPureDigits.length > opDigitCount + 1) {
+        sl = stopLoss.substring(0, opDigitCount);
+        log('data', 'Split glued SL: ' + stopLoss + ' → ' + sl + ' (opDigits=' + opDigitCount + ')');
+      }
     }
     
     const isClosed = !!(closePrice && closePrice !== '0');
@@ -332,8 +355,8 @@ function parseEndPage(html) {
     if (openPrice && direction) {
       rows.push({
         openTime, direction, product, openPrice,
-        stopLoss: stopLoss || '',
-        takeProfit: takeProfit || '',
+        stopLoss: sl || '',
+        takeProfit: tp || '',
         closeTime: closeTime || '', closePrice: closePrice || '',
         profitPts: profitPts, teacher: teacher || '',
         source: 'end', isClosed,
@@ -656,8 +679,9 @@ const server = http.createServer((req, res) => {
     }
 
     if (urlPath === '/status') {
+      const hasSession = !!(aspSession || (BROWSER_HEADERS['Cookie'] && BROWSER_HEADERS['Cookie'].includes('ASPSESSIONID')));
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ loggedIn: !!(aspSession || loginCookie), appReady: appLoggedIn }));
+      res.end(JSON.stringify({ loggedIn: hasSession, appReady: appLoggedIn }));
       return;
     }
     if (urlPath === '/config') {
@@ -714,6 +738,12 @@ const server = http.createServer((req, res) => {
       aspSession = '';
       loginCookie = '';
       loginTime = 0;
+      lastSessionRefresh = 0;  // 清空刷新时间，确保下次 fetch 前重新登录
+      // 同步清空 BROWSER_HEADERS 中的 ASP/登录 Cookie（保留静态字段）
+      const bk = (BROWSER_HEADERS['Cookie'] || '').split(';').map(s => s.trim()).filter(Boolean);
+      const keep = bk.filter(p => p.startsWith('Guest_Name=') || p.startsWith('bg_img='));
+      BROWSER_HEADERS['Cookie'] = keep.join('; ');
+      log('info', 'App locked, all session data cleared');
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
       return;
@@ -876,28 +906,114 @@ const server = http.createServer((req, res) => {
   }
 });
 
-server.on('error', e => log('err', 'Server: ' + e.message));
+server.on('error', e => {
+  if (e.code === 'EADDRINUSE') {
+    log('err', 'Port ' + PORT + ' already in use! Trying to kill existing process...');
+    // 尝试杀掉占用端口的进程
+    const { execSync } = require('child_process');
+    try {
+      const out = execSync('netstat -ano | findstr :' + PORT + ' | findstr LISTEN', { encoding: 'utf8' });
+      const pid = out.trim().split(/\s+/).pop();
+      if (pid && !isNaN(pid)) {
+        execSync('taskkill /PID ' + pid + ' /F', { encoding: 'utf8' });
+        log('ok', 'Killed PID ' + pid + ', retrying...');
+        setTimeout(() => server.listen(PORT, '0.0.0.0'), 1000);
+      }
+    } catch(ex) {
+      log('err', 'Failed to kill: ' + ex.message + '. Please manually free port ' + PORT);
+    }
+  } else {
+    log('err', 'Server error: ' + e.message);
+  }
+});
 
-// === 自动刷新 ASP Session（2026-05-07 新增，解决 session 过期问题）===
+// === 自动刷新 ASP Session（2026-05-08 重大修复：完整3步登录）===
+// 根因：只访问首页拿ASPSESSIONID不够，_Data_End_Show.asp 需要完整会员权限
+// 必须走3步：1.访问首页拿session 2.验证房间密码 3.用户登录
 let lastSessionRefresh = 0;
 const SESSION_TTL = 20 * 60 * 1000; // 20分钟刷新一次
+const LOGIN_ACCOUNT = '16616135917'; // 超管账号
 
 async function refreshSession() {
   try {
-    log('info', 'Refreshing ASP session...');
-    const resp = await httpReqBrowser(BASE + '/', 'GET');
-    lastSessionRefresh = Date.now();
-    log('ok', 'Session refreshed (status=' + resp.status + ', size=' + resp.body.length + ')');
-    return true;
+    log('info', 'Refreshing ASP session (full 3-step login)...');
+    
+    // Step 1: 访问首页 → 拿 ASPSESSIONID
+    const r1 = await httpReqBrowser(BASE + '/', 'GET');
+    log('info', 'Step1 homepage: status=' + r1.status + ' size=' + r1.body.length);
+    
+    // Step 2: 验证房间密码 → 授权房间访问
+    const roomUrl = BASE + '/Handle/CheckRoomPass.asp?ac=CheckRoomPass&RID=' + ROOM_ID + '&P=' + encodeURIComponent(LOGIN_PASSWORD);
+    const r2 = await httpReqBrowser(roomUrl, 'GET');
+    log('info', 'Step2 room pass: status=' + r2.status + ' size=' + r2.body.length);
+    
+    // Step 3: 用户登录 → 获取会员权限（访问 _Data_End_Show.asp 必需）
+    const pd = querystring.stringify({
+      Method: 'Login', UserMail: '',
+      usertel: LOGIN_ACCOUNT, UserPass: LOGIN_PASSWORD,
+      _AutoLogin: '1', GoUrl: ''
+    });
+    // 用 httpReq 做 POST（httpReqBrowser 不支持 body），成功后同步 Cookie
+    const r3 = await httpReq(BASE + '/handle/qlogin/', 'POST', pd, {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Origin': BASE,
+      'Content-Length': Buffer.byteLength(pd),
+      'Cookie': BROWSER_HEADERS['Cookie'] || '',
+    });
+    log('info', 'Step3 login: status=' + r3.status + ' body=' + r3.body.substring(0, 80));
+    
+    // 同步 Cookie：将 httpReq 捕获的 aspSession 和 loginCookie 同步到 BROWSER_HEADERS
+    syncCookiesToBrowser();
+    
+    // 验证：快速测试 _Data_End_Show.asp 是否可访问
+    const testUrl = BASE + '/generalmodule/shouted/_Data_End_Show.asp?RoomID=' + ROOM_ID + '&page=1';
+    const test = await httpReqBrowser(testUrl, 'GET');
+    if (test.body.length > 200 && test.body.includes('data7')) {
+      lastSessionRefresh = Date.now();
+      log('ok', 'Session fully refreshed & verified (End_Show=' + test.body.length + ' bytes, has SL/TP)');
+      return true;
+    } else if (test.body.length < 200) {
+      log('warn', 'Session refresh: End_Show still blocked (' + test.body.length + ' bytes): ' + test.body.substring(0, 80));
+      // 回退：至少 Ping_Show 能用
+      lastSessionRefresh = Date.now();
+      return false;
+    } else {
+      lastSessionRefresh = Date.now();
+      log('ok', 'Session refreshed (End_Show=' + test.body.length + ' bytes)');
+      return true;
+    }
   } catch(e) {
     log('warn', 'Session refresh failed: ' + e.message);
     return false;
   }
 }
 
-// 主动刷新（在 /fetch 前检查，过期自动续）
+// 将 httpReq 捕获的 Cookie 同步到 BROWSER_HEADERS
+function syncCookiesToBrowser() {
+  const parts = (BROWSER_HEADERS['Cookie'] || '').split(';').map(s => s.trim()).filter(Boolean);
+  
+  // 更新 ASPSESSIONID
+  if (aspSession) {
+    const idx = parts.findIndex(p => p.startsWith('ASPSESSIONID'));
+    if (idx >= 0) parts[idx] = aspSession;
+    else parts.push(aspSession);
+  }
+  
+  // 更新 ishow
+  if (loginCookie) {
+    const idx = parts.findIndex(p => p.startsWith('ishow='));
+    if (idx >= 0) parts[idx] = loginCookie;
+    else parts.push(loginCookie);
+  }
+  
+  BROWSER_HEADERS['Cookie'] = parts.join('; ');
+  log('info', 'Cookies synced to BROWSER_HEADERS');
+}
+
+// 主动刷新（在 /fetch 前检查，过期自动续，或 Cookie 被清空时强制刷新）
 async function ensureSession() {
-  if (Date.now() - lastSessionRefresh > SESSION_TTL) {
+  const noCookie = !BROWSER_HEADERS['Cookie'] || !BROWSER_HEADERS['Cookie'].includes('ASPSESSIONID');
+  if (noCookie || Date.now() - lastSessionRefresh > SESSION_TTL) {
     await refreshSession();
   }
 }
@@ -907,11 +1023,15 @@ server.listen(PORT, '0.0.0.0', async () => {
   log('info', `App version: ${APP_VERSION}`);
   log('info', `Remote config: ${CONFIG_URL}`);
   startConfigPolling();
-  // 启动时自动刷新 session（ishow 带 iAutoLogin=true 会触发服务端自动登录）
+  // 启动时自动刷新 session（完整3步登录：首页+房间密码+用户登录）
   await refreshSession();
   // 每20分钟自动刷新
   setInterval(refreshSession, SESSION_TTL);
 });
 
-process.on('uncaughtException', e => { log('err', 'FATAL: ' + e.message); process.exit(1); });
+// 注意：不在 Electron 环境中 process.exit()，否则整个应用崩溃
+process.on('uncaughtException', e => {
+  log('err', 'UNCAUGHT: ' + e.message);
+  // 不退出进程，只记录错误。Electron 环境中退出 = 应用崩溃
+});
 process.on('unhandledRejection', e => { log('err', 'REJECTION: ' + (e && e.message ? e.message : String(e))); });
