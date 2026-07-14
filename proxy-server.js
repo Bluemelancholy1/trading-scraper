@@ -696,6 +696,21 @@ const server = http.createServer((req, res) => {
       return;
     }
 
+    // 静态文件服务（app.js, lottery.js, minesweeper.js 等）
+    const ext = path.extname(urlPath).toLowerCase();
+    const staticExts = ['.js', '.css', '.json', '.png', '.jpg', '.gif', '.svg', '.ico'];
+    if (staticExts.includes(ext) && !urlPath.includes('..') && !urlPath.startsWith('/api/')) {
+      const fileName = path.basename(urlPath);
+      const filePath = path.join(__dirname, fileName);
+      try {
+        const content = fs.readFileSync(filePath);
+        const mimeMap = { '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.gif': 'image/gif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
+        res.writeHead(200, { 'Content-Type': mimeMap[ext] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+        res.end(ext === '.js' || ext === '.css' ? content.toString('utf-8') : content);
+        return;
+      } catch(e) { /* fall through to 404 */ }
+    }
+
     if (urlPath === '/status') {
       const hasSession = !!(aspSession || (BROWSER_HEADERS['Cookie'] && BROWSER_HEADERS['Cookie'].includes('ASPSESSIONID')));
       res.writeHead(200, { 'Content-Type': 'application/json' });
