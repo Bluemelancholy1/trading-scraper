@@ -934,8 +934,18 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify({ ok: true, mode, ...result }));
         } catch(e) {
           log('err', '/fetch error: ' + e.message);
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: false, error: e.message }));
+          // 错误分类
+          const msg = e.message || '';
+          let errType = 'server', errMsg = '服务器开小差了，请稍后重试';
+          if (/connect_fail|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|timeout|connect_timeout/i.test(msg)) {
+            errType = 'network'; errMsg = '🌐 网络连不上大粤服务器，请检查网络或稍后重试';
+          } else if (/请先验证|authError|ASP session|未登录|Unauthorized/i.test(msg)) {
+            errType = 'auth'; errMsg = '🔒 应用未解锁，请先输入密码';
+          } else if (/parse|undefined|is not defined|cannot read/i.test(msg)) {
+            errType = 'data'; errMsg = '📊 数据解析出错（平台页面结构可能变了）';
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: errMsg, errType, detail: msg }));
         }
       });
       return;
