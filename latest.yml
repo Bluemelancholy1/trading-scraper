@@ -1,8 +1,8 @@
 version: 1.0.14
 files:
-  - url: 交易数据抓取工具 Setup 1.0.14.exe
+  - url: Setup.1.0.14.exe
     sha512: 8f938e2a78d83593112ba470814ae1be7fcee8cba7b4eb59c4e8301133614c0c99e1bef5605e4e8c2f333083ec73a2962f1d926da97e07f04c5ba9341a838ff7
     size: 104470103
-path: 交易数据抓取工具 Setup 1.0.14.exe
+path: Setup.1.0.14.exe
 sha512: 8f938e2a78d83593112ba470814ae1be7fcee8cba7b4eb59c4e8301133614c0c99e1bef5605e4e8c2f333083ec73a2962f1d926da97e07f04c5ba9341a838ff7
 releaseDate: '2026-07-14T01:36:04.167Z'
