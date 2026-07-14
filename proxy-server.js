@@ -1,5 +1,7 @@
 ﻿// DayueKX Proxy Server v3 - 建仓提醒 + 平仓提醒 + 合并模式
-// Run: node proxy-server.js | Open: http://localhost:3456/
+// 运行: node proxy-server.js | 打开: http://localhost:3456/
+
+require('dotenv').config();
 
 const http = require('http');
 const https = require('https');
@@ -7,17 +9,22 @@ const { URL } = require('url');
 const fs = require('fs');
 const path = require('path');
 const querystring = require('querystring');
+const crypto = require('crypto');
 
 const PORT = 3456;
 const ROOM_ID = 7000;
-const BASE = 'https://qh.yemacaijing.net';
-let APP_PASS = '135917';  // 应用访问密码（解锁用，2026-04-29更新）
+const BASE = 'https://fu.yemacaijing.net';
+let APP_PASS = process.env.PROXY_APP_PASS;  // 应用访问密码（解锁用，2026-04-29更新）
 
 const TEACHERS = {
   4421:'大元老师', 4767:'青松老师', 3814:'山野老师',
   3154:'羽木老师',  4732:'安然老师', 4460:'泰山老师',
   3153:'大元老师', 3155:'夏美老师',
 };
+
+// === 环境变量初始化（必须在使用前）===
+const LOGIN_PASSWORD = process.env.LOGIN_PASSWORD || '135917';  // ASP网站登录密码
+const LOGIN_ACCOUNT = process.env.LOGIN_ACCOUNT || '16616135917';  // 超管账号
 
 // 品种汇率配置
 // 汇率: 1 USD=7.98 CNY, 1 HKD=1 CNY, 1 EUR=9.1 CNY
@@ -44,7 +51,7 @@ const BROWSER_HEADERS = {
   'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
   'Cache-Control': 'no-cache',
   'Connection': 'keep-alive',
-  'Cookie': 'Guest_Name=4ufwU803; ishow=iUserPass=135917&iUserName=4421&iAutoLogin=true; bg_img=images%2Fbg%2F23.jpg; ASPSESSIONIDAATQDADR=DAFBHNOBDOCEGDDAHKKOKCND',
+  'Cookie': `Guest_Name=4ufwU803; ishow=iUserPass=${LOGIN_PASSWORD}&iUserName=4421&iAutoLogin=true; bg_img=images%2Fbg%2F23.jpg; ASPSESSIONIDAATQDADR=DAFBHNOBDOCEGDDAHKKOKCND`,
   'Pragma': 'no-cache',
   'Sec-Fetch-Dest': 'document',
   'Sec-Fetch-Mode': 'navigate',
@@ -57,15 +64,14 @@ const BROWSER_HEADERS = {
   'sec-ch-ua-platform': '"Windows"',
 };
 
-let aspSession = '';  // will be set by ASP login flow
-let loginCookie = 'ishow=iUserPass=135917&iUserName=4421&iAutoLogin=true';  // ishow from browser
-let guestCookie = 'Guest_Name=4ufwU803';  // Guest_Name from browser
+let aspSession = '';  // 将由ASP登录流程设置
+let loginCookie = `ishow=iUserPass=${LOGIN_PASSWORD}&iUserName=4421&iAutoLogin=true`;  // 浏览器中的ishow
+let guestCookie = 'Guest_Name=4ufwU803';  // 浏览器中的Guest_Name
 let appLoggedIn = false;   // 默认未登录，输入正确密码后解锁
-const LOGIN_PASSWORD = '135917';  // ASP网站登录密码（陈少账号）
 let loginTime = 0;
 
 // 内存缓存：避免短时间内重复抓取
-let cachedFetch = null;   // { key, data, ts }
+let cachedFetch = null;   // 缓存结构: { key, data, ts }
 const CACHE_TTL = 5 * 60 * 1000;  // 5分钟缓存
 
 // === 远程配置 ===
@@ -81,6 +87,18 @@ function loadRemoteConfig() {
       if (resp.status === 200) {
         try {
           const cfg = JSON.parse(resp.body);
+          // 验证签名（如果有）
+          const secret = process.env.SIGN_SECRET;
+          if (cfg.sign && secret) {
+            const { sign, ...configWithoutSign } = cfg;
+            const expectedSign = crypto.createHash('sha256').update(JSON.stringify(configWithoutSign) + secret).digest('hex');
+            if (sign !== expectedSign) {
+              log('warn', 'Remote config signature verification failed, ignoring malicious config');
+              return;
+            }
+          } else if (!secret) {
+            log('warn', 'SIGN_SECRET not configured, skipping signature verification');
+          }
           remoteConfig = { ...remoteConfig, ...cfg };
           configLoaded = true;
           // 用远程密码覆盖本地密码（如果远程配置了）
@@ -113,7 +131,7 @@ function httpReq(targetUrl, method, postData, extraHeaders) {
     try {
       const pu = new URL(targetUrl);
       const lib = pu.protocol === 'https:' ? https : http;
-      const isTargetHost = pu.hostname === 'qh.yemacaijing.net';
+      const isTargetHost = pu.hostname === 'fu.yemacaijing.net';
       const headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': '*/*', 'Accept-Language': 'zh-CN',
@@ -122,7 +140,7 @@ function httpReq(targetUrl, method, postData, extraHeaders) {
       const opt = { hostname: pu.hostname, port: pu.port || 443,
         path: pu.pathname + pu.search, method: method || 'GET',
         headers, timeout: 25000,
-        // 该站点证书域名不匹配，忽略校验
+        // 当该站点证书域名不匹配时，忽略校验
         ...(isTargetHost ? { rejectUnauthorized: false } : {}),
       };
       const req = lib.request(opt, res => {
@@ -210,10 +228,10 @@ function getFullCookie() {
 // --- 登录 ---
 async function login(password, phone, pass) {
   try {
-    // Step 1: Get initial ASP session
+    // 步骤1: 获取初始ASP session
     await httpReq(BASE + '/', 'GET', null, {});
     log('info', 'ASP session: ' + (aspSession ? 'YES' : 'NO'));
-    // Step 2: Verify room password (must carry same session)
+    // 步骤2: 验证房间密码（必须携带相同session）
     await httpReq(BASE + '/Handle/CheckRoomPass.asp?ac=CheckRoomPass&RID=' + ROOM_ID + '&P=' + encodeURIComponent(password), 'GET', null, {
       'Cookie': getFullCookie(),
     });
@@ -501,16 +519,16 @@ async function fetchWithBrowserHeaders(maxPages) {
   return result.rows;
 }
 
-// Normalize timestamp to minute precision for fuzzy matching
+// 将时间戳归一化到分钟精度，用于模糊匹配
 function tsMinute(str) {
-  // "2026/5/6 13:04:55" -> "2026/5/6 13:04" (drop seconds)
+  // "2026/5/6 13:04:55" -> "2026/5/6 13:04" (去除秒数)
   return str.substring(0, str.lastIndexOf(':'));
 }
 
-// fuzzy product name matching (some pages use "原油" instead of "美原油" etc.)
+// 模糊产品名称匹配（某些页面使用 "原油" 而不是 "美原油" 等）
 const PRODUCT_ALIASES = {
   '原油': '美原油',
-  '小道指': '小纳指',  // may appear as alias
+  '小道指': '小纳指',  // 可能作为别名出现
   '黄金': '美黄金',
 };
 function normProduct(p) { return PRODUCT_ALIASES[p] || p; }
@@ -541,8 +559,8 @@ async function fetchMerged(filters, maxPages) {
     log('warn', 'PC fetch failed: ' + e.message);
   }
 
-  // Merge: for each PC row, find JC match by product+direction+time window (±10min)
-  // JC rows stored with their original Date for precise time comparison
+  // 合并：对每条PC记录，按商品+方向+时间窗口(±10分钟)查找JC匹配
+  // JC记录保留原始Date用于精确时间比较
   const jcWithDate = jcRows.map(r => ({ ...r, _date: new Date(r.openTime) }));
   const merged = [];
   let matched = 0, unmatched = 0;
@@ -551,13 +569,13 @@ async function fetchMerged(filters, maxPages) {
     const prDate = new Date(pr.openTime);
     const prProd = normProduct(pr.product);
     
-    // Find closest JC record within ±10 minutes, same product+direction
+    // 查找10分钟内的最近JC记录，相同商品+方向
     let best = null, bestDiff = Infinity;
     for (const jc of jcWithDate) {
       if (normProduct(jc.product) !== prProd) continue;
       if (jc.direction !== pr.direction) continue;
       const diff = Math.abs(prDate - jc._date);
-      if (diff < bestDiff && diff <= 10 * 60 * 1000) { // within 10 minutes
+      if (diff < bestDiff && diff <= 10 * 60 * 1000) { // 10分钟内
         bestDiff = diff;
         best = jc;
       }
@@ -573,7 +591,7 @@ async function fetchMerged(filters, maxPages) {
     merged.push(pr);
   }
 
-  // Mark closed JC records (those with a PC match within ±10min)
+  // 标记已平仓的JC记录（10分钟内与PC匹配的）
   const closedSet = new Set();
   for (const pr of pcRows) {
     const prDate = new Date(pr.openTime);
@@ -587,7 +605,7 @@ async function fetchMerged(filters, maxPages) {
     }
   }
   
-  // Append unclosed JC records (no PC match within ±10min)
+  // 添加未平仓的JC记录（10分钟内无PC匹配的）
   for (const jc of jcWithDate) {
     const key = jc.openTime + '|' + jc.product + '|' + jc.direction;
     if (!closedSet.has(key)) {
@@ -702,11 +720,11 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    // POST /unlock — 独立密码验证（不调ASP，纯本地比对）
+    // POST /unlock — 密码验证 + 自动ASP登录
     if (urlPath === '/unlock' && req.method === 'POST') {
       let body = '';
       req.on('data', c => { body += c; });
-      req.on('end', () => {
+      req.on('end', async () => {
         try {
           // 检查远程是否禁用
           if (configLoaded && !remoteConfig.enabled) {
@@ -718,9 +736,21 @@ const server = http.createServer((req, res) => {
           if (data.password === APP_PASS) {
             appLoggedIn = true;
             loginTime = Date.now();
-            log('info', 'App unlocked via /unlock');
+            log('info', 'App unlocked via /unlock, starting ASP login...');
+            // 解锁后自动调用ASP登录（与 /login 端点一致）
+            try {
+              if (aspSession && loginCookie) {
+                log('info', '/unlock: ASP session already active, skip login');
+              } else {
+                const loginOk = await login(LOGIN_PASSWORD, LOGIN_ACCOUNT, LOGIN_PASSWORD);
+                log('info', '/unlock: ASP login result=' + loginOk + ' room=' + !!aspSession + ' user=' + !!loginCookie);
+              }
+            } catch(e) {
+              log('err', '/unlock: ASP login failed: ' + e.message);
+              // ASP登录失败不影响解锁本身，前端仍收到ok:true
+            }
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: true }));
+            res.end(JSON.stringify({ ok: true, room: !!aspSession, user: !!loginCookie }));
           } else {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: false, error: '密码错误' }));
@@ -808,6 +838,15 @@ const server = http.createServer((req, res) => {
       return;
     }
 
+    // POST /cache/clear — 手动清除内存缓存
+    if (urlPath === '/cache/clear' && req.method === 'POST') {
+      cachedFetch = null;
+      log('info', 'Cache manually cleared via /cache/clear');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, message: 'Cache cleared' }));
+      return;
+    }
+
     // POST /fetch
     if (urlPath === '/fetch') {
       let body = '';
@@ -833,9 +872,12 @@ const server = http.createServer((req, res) => {
           const { mode = 'merged' } = opts;
           const maxPages = Math.min(opts.pages || 8, 50);
           
-          // 缓存检查：5分钟内相同请求直接返回
+          // nocache=true 时跳过缓存
+          const nocache = opts.nocache === true || opts.nocache === 'true';
+          
+          // 缓存检查：5分钟内相同请求直接返回（nocache时跳过）
           const cacheKey = `${mode}|${maxPages}|${JSON.stringify(opts.filters || {})}`;
-          if (cachedFetch && cachedFetch.key === cacheKey && Date.now() - cachedFetch.ts < CACHE_TTL) {
+          if (!nocache && cachedFetch && cachedFetch.key === cacheKey && Date.now() - cachedFetch.ts < CACHE_TTL) {
             log('info', 'Cache hit (' + Math.round((CACHE_TTL - (Date.now() - cachedFetch.ts)) / 1000) + 's left)');
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: true, mode, ...cachedFetch.data, cached: true }));
@@ -932,7 +974,6 @@ server.on('error', e => {
 // 必须走3步：1.访问首页拿session 2.验证房间密码 3.用户登录
 let lastSessionRefresh = 0;
 const SESSION_TTL = 20 * 60 * 1000; // 20分钟刷新一次
-const LOGIN_ACCOUNT = '16616135917'; // 超管账号
 
 async function refreshSession() {
   try {

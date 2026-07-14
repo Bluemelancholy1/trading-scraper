@@ -1,6 +1,6 @@
 {
   "name": "trading-scraper",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "交易数据抓取工具",
   "author": "陈少",
   "main": "main.js",
@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "cheerio": "^1.2.0",
+    "dotenv": "^17.4.2",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.3.9",
     "puppeteer": "^24.42.0"
