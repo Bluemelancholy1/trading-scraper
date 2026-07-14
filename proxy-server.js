@@ -14,7 +14,7 @@ const crypto = require('crypto');
 const PORT = 3456;
 const ROOM_ID = 7000;
 const BASE = 'https://fu.yemacaijing.net';
-let APP_PASS = process.env.PROXY_APP_PASS;  // 应用访问密码（解锁用，2026-04-29更新）
+let APP_PASS = process.env.PROXY_APP_PASS || '135917';  // 应用访问密码（解锁用，2026-04-29更新）
 
 const TEACHERS = {
   4421:'大元老师', 4767:'青松老师', 3814:'山野老师',
