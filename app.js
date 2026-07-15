@@ -336,6 +336,8 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (document.getElementById('lotteryModal').classList.contains('show')) closeLottery();
     if (document.getElementById('mineModal').classList.contains('show')) closeMine();
+    if (document.getElementById('gameMenuModal').classList.contains('show')) closeGameMenu();
+    if (document.getElementById('gomokuModal').classList.contains('show')) closeGomoku();
   }
 });
 // === Auto login ===
@@ -687,7 +689,7 @@ document.getElementById('btnChart').onclick   = toggleChartPanel;
 document.getElementById('btnTheme').onclick   = toggleTheme;
 document.getElementById('btnOpLog').onclick    = toggleOpLog;
 document.getElementById('btnLottery').onclick   = openLottery;
-document.getElementById('btnMinesweeper').onclick  = openMine;
+document.getElementById('btnMinesweeper').onclick  = openGameMenu;
 document.getElementById('lotteryModal').addEventListener('click', e => {
   if (e.target.id === 'lotteryModal') closeLottery();
 });
@@ -769,3 +771,11 @@ if (window.electronAPI) {
 }
 
 init();
+
+// === 小游戏菜单 ===
+function openGameMenu() {
+  document.getElementById('gameMenuModal').classList.add('show');
+}
+function closeGameMenu() {
+  document.getElementById('gameMenuModal').classList.remove('show');
+}

@@ -181,6 +181,11 @@ tbody td .profit.neg{color:#ff4757;text-shadow:0 0 10px rgba(255,71,87,0.3)}
 .modal-box .modal-info{font-size:12px;color:var(--text-dim);margin-bottom:12px;line-height:1.6}
 .modal-box .modal-info span{color:var(--text-secondary)}
 .modal-btns{display:flex;gap:10px;justify-content:flex-end}
+.game-menu-item{padding:20px 12px;border-radius:12px;text-align:center;cursor:pointer;transition:transform .15s,box-shadow .15s;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.game-menu-item:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,.5)}
+.game-menu-icon{font-size:36px;line-height:1;margin-bottom:6px}
+.game-menu-name{font-size:16px;font-weight:bold;margin-bottom:4px}
+.game-menu-desc{font-size:11px;opacity:.85}
 .modal-btns button{padding:8px 20px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:bold;transition:.2s}
 .modal-btns .btn-save{background:linear-gradient(135deg,#00ff88,#00cc6a);color:#fff}
 .modal-btns .btn-save:hover{box-shadow:0 0 15px rgba(0,255,136,0.4)}
@@ -318,7 +323,7 @@ tbody td .profit.neg{color:#ff4757;text-shadow:0 0 10px rgba(255,71,87,0.3)}
       <button class="btn small green" id="btnFetchAll">📥 抓取全部</button>
       <button class="btn small" id="btnExport">💾 导出 CSV</button>
       <button class="btn small" id="btnLottery" style="background:linear-gradient(135deg,#f0c040,#e0a020);color:#1a1d2e;font-weight:bold">🎰 抽奖</button>
-      <button class="btn small" id="btnMinesweeper" style="background:linear-gradient(135deg,#3498db,#2980b9)">🎮 小游戏</button>
+      <button class="btn small" id="btnMinesweeper" style="background:linear-gradient(135deg,#3498db,#2980b9)" onclick="openGameMenu()">🎮 小游戏</button>
       <button class="btn small" id="btnChart">📊 数据图表</button>
       <button class="btn small" id="btnXLSX">📗 导出 Excel</button>
   <!-- 操作日志面板 -->
@@ -440,6 +445,61 @@ tbody td .profit.neg{color:#ff4757;text-shadow:0 0 10px rgba(255,71,87,0.3)}
   </div>
 </div>
 
+<!-- 小游戏菜单 -->
+<div class="modal-overlay" id="gameMenuModal">
+  <div class="modal-box" style="width:420px">
+    <div class="modal-header" style="border-bottom:1px solid #333;padding-bottom:12px;margin-bottom:16px">
+      <h3>🎮 小游戏</h3>
+      <button class="modal-close" onclick="closeGameMenu()">×</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px">
+      <div class="game-menu-item" onclick="closeGameMenu();openMine();" style="background:linear-gradient(135deg,#3498db,#2980b9)">
+        <div class="game-menu-icon">💣</div>
+        <div class="game-menu-name">扫雷</div>
+        <div class="game-menu-desc">经典9×9</div>
+      </div>
+      <div class="game-menu-item" onclick="closeGameMenu();openGomoku();" style="background:linear-gradient(135deg,#e67e22,#d35400)">
+        <div class="game-menu-icon">⚫</div>
+        <div class="game-menu-name">五子棋</div>
+        <div class="game-menu-desc">双人对战</div>
+      </div>
+      <div class="game-menu-item" style="background:linear-gradient(135deg,#7f8c8d,#566566);opacity:0.5;cursor:not-allowed">
+        <div class="game-menu-icon">🎲</div>
+        <div class="game-menu-name">敬请期待</div>
+        <div class="game-menu-desc">更多游戏</div>
+      </div>
+      <div class="game-menu-item" style="background:linear-gradient(135deg,#7f8c8d,#566566);opacity:0.5;cursor:not-allowed">
+        <div class="game-menu-icon">🃏</div>
+        <div class="game-menu-name">敬请期待</div>
+        <div class="game-menu-desc">更多游戏</div>
+      </div>
+    </div>
+    <div class="modal-btns" style="margin-top:18px">
+      <button class="btn-cancel" onclick="closeGameMenu()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 五子棋 -->
+<div class="modal-overlay mine-modal" id="gomokuModal">
+  <div class="modal-box" style="width:auto">
+    <div class="modal-header" style="border-bottom:1px solid #333;padding-bottom:12px;margin-bottom:0">
+      <h3>⚫ 五子棋 · <span id="gomokuCurrentPlayer">黑</span> 落子</h3>
+      <button class="modal-close" onclick="closeGomoku()">×</button>
+    </div>
+    <div id="gomokuStatus" style="margin-top:10px;font-size:14px">⚫ <b>黑子</b> 落子</div>
+    <canvas id="gomokuCanvas" width="552" height="552" style="display:block;margin:10px auto;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.4);cursor:pointer"></canvas>
+    <div class="mine-info">
+      <span class="mine-stat">⏱ <span id="gomokuTimer">0</span> 秒</span>
+      <button class="mine-btn" onclick="resetGomoku()">重新开始</button>
+      <span class="mine-stat">📝 <span id="gomokuMoveCount">0</span> 手</span>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeGomoku()">关闭</button>
+    </div>
+  </div>
+</div>
+
 <!-- 扫雷 -->
 <div class="modal-overlay mine-modal" id="mineModal">
   <div class="modal-box">
@@ -462,6 +522,7 @@ tbody td .profit.neg{color:#ff4757;text-shadow:0 0 10px rgba(255,71,87,0.3)}
 
 
 <script src="lottery.js"></script>
+<script src="gomoku.js"></script>
 <script src="minesweeper.js"></script>
 <script src="viz.js"></script>
 <script src="app.js"></script>
