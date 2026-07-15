@@ -54,7 +54,7 @@ function fetch(path, opts) {
 }
 
 async function main() {
-  console.log('\n===== Trading Scraper v1.0.18 测试报告 =====');
+  console.log('\n===== Trading Scraper v1.0.19 测试报告 =====');
   console.log('时间: ' + new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) + '\n');
 
   // 1. 端口可达
@@ -109,7 +109,8 @@ async function main() {
     ['/index.html', 'index.html', 'text'],
     ['/app.js', 'app.js', 1000],
     ['/lottery.js', 'lottery.js', 100],
-    ['/minesweeper.js', 'minesweeper.js', 100]
+    ['/minesweeper.js', 'minesweeper.js', 100],
+    ['/viz.js', 'viz.js', 100]
   ];
   for (const [p, name, minSize] of files) {
     await test('GET ' + name + ' 可访问', async () => {
@@ -144,6 +145,30 @@ async function main() {
     const r = await fetch('/minesweeper.js');
     if (!r.body.includes('initMine') && !r.body.includes('reveal'))
       throw new Error('缺少扫雷函数');
+  });
+
+  // 10. viz.js 可视化函数
+  await test('viz.js 含可视化函数', async () => {
+    const r = await fetch('/viz.js');
+    const required = ['drawPieChart', 'drawTrendChart', 'updateCharts', 'toggleChartPanel'];
+    const missing = required.filter(fn => !r.body.includes(fn));
+    if (missing.length > 0) throw new Error('missing: ' + missing.join(', '));
+  });
+
+  // 11. app.js 新功能函数
+  await test('app.js 含快捷键/主题/Excel函数', async () => {
+    const r = await fetch('/app.js');
+    const required = ['exportXLSX', 'getTheme', 'setTheme', 'toggleTheme'];
+    const missing = required.filter(fn => !r.body.includes(fn));
+    if (missing.length > 0) throw new Error('missing: ' + missing.join(', '));
+  });
+
+  // 12. index.html 新元素
+  await test('index.html 含新按钮和图表面板', async () => {
+    const r = await fetch('/index.html');
+    const elements = ['btnChart', 'btnXLSX', 'btnTheme', 'chartPanel', 'pieChart', 'trendChart'];
+    const missing = elements.filter(el => !r.body.includes(el));
+    if (missing.length > 0) throw new Error('missing elements: ' + missing.join(', '));
   });
 
   // 总结

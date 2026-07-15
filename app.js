@@ -222,9 +222,12 @@ function applyFilters() {
   renderPager(filteredRows);
   updateStats(filteredRows);
   updateTeacherSummary(filteredRows);
+  const s = document.getElementById('fStart').value, e = document.getElementById('fEnd').value;
+  const t = document.getElementById('fTeacher').value, d = document.getElementById('fDir').value;
+  const p = document.getElementById('fProduct').value.trim();
+  const parts = [s&&e ? s+'~'+e : (s||e||'全部日期'), t||'全部老师', d||'全部方向', p||'全部品种'];
+  OpLog.add('filter', '筛选：' + parts.join(' | ') + ' → ' + filteredRows.length + ' 条');
 }
-
-
 
 // === Edit Price Modal ===
 let editRowIdx = -1;
@@ -317,11 +320,23 @@ function recalcProfit(row) {
   }
 }
 
-// ESC / Enter for edit modal
+// === Keyboard Shortcuts ===
 document.addEventListener('keydown', e => {
-  if (!document.getElementById('editModal').classList.contains('show')) return;
-  if (e.key === 'Escape') closeEditModal();
-  if (e.key === 'Enter') saveEdit();
+  // Edit modal
+  if (document.getElementById('editModal').classList.contains('show')) {
+    if (e.key === 'Escape') closeEditModal();
+    if (e.key === 'Enter') saveEdit();
+    return;
+  }
+  // 不在输入框时执行全局快捷键
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  if (e.key === 'F5') { e.preventDefault(); allRows = []; doFetch(true, true); }
+  if (e.key === 'l' && e.ctrlKey) { e.preventDefault(); api('/lock','GET').then(() => showLockScreen()); }
+  if (e.key === 'e' && e.ctrlKey) { e.preventDefault(); if (typeof exportCSV === 'function') exportCSV(); }
+  if (e.key === 'Escape') {
+    if (document.getElementById('lotteryModal').classList.contains('show')) closeLottery();
+    if (document.getElementById('mineModal').classList.contains('show')) closeMine();
+  }
 });
 // === Auto login ===
 async function autoLogin() {
@@ -334,6 +349,7 @@ async function autoLogin() {
     if (r.ok) {
       document.getElementById('statusDot').classList.add('live');
       document.getElementById('statusTxt').textContent = '已登录';
+      OpLog.add('login', 'API登录成功');
       return true;
     }
     document.getElementById('statusTxt').textContent = '登录失败';
@@ -341,6 +357,58 @@ async function autoLogin() {
     document.getElementById('statusTxt').textContent = '连接失败';
   }
   return false;
+}
+
+// === Operation Log ===
+const OpLog = {
+  KEY: 'tradingOpLog',
+  MAX: 100,
+  add(type, msg) {
+    const logs = this.get();
+    logs.unshift({ t: type, m: msg, ts: new Date().toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}) });
+    if (logs.length > this.MAX) logs.splice(this.MAX);
+    localStorage.setItem(this.KEY, JSON.stringify(logs));
+    this.refresh();
+  },
+  get() {
+    try { return JSON.parse(localStorage.getItem(this.KEY) || '[]'); } catch(e) { return []; }
+  },
+  clear() {
+    localStorage.removeItem(this.KEY);
+    this.refresh();
+  },
+  refresh() {
+    const el = document.getElementById('opLogBody');
+    if (!el) return;
+    const logs = this.get();
+    if (!logs.length) { el.innerHTML = '<div style="color:var(--text-dim);text-align:center;padding:20px;font-size:13px">暂无操作记录</div>'; return; }
+    const icons = { fetch:'📥', export:'💾', filter:'🔍', login:'🔓', logout:'🔒', error:'⚠️', chart:'📊' };
+    const typeColors = { fetch:'#3498db', export:'#00ff88', filter:'#9b59b6', login:'#f0c040', logout:'#e74c3c', error:'#ff4757', chart:'#1abc9c' };
+    el.innerHTML = logs.map(l => {
+      const icon = icons[l.t] || '📋';
+      const color = typeColors[l.t] || '#888';
+      return `<div style="display:flex;gap:10px;padding:7px 12px;border-bottom:1px solid var(--bg-highlight);font-size:12px;align-items:flex-start">
+        <span style="font-size:14px">${icon}</span>
+        <span style="color:var(--text-muted);white-space:nowrap">${l.ts}</span>
+        <span style="color:${color};font-weight:bold">${l.t}</span>
+        <span style="color:var(--text-secondary);flex:1">${l.m}</span>
+      </div>`;
+    }).join('');
+    const countEl = document.getElementById('opLogCount');
+    if (countEl) countEl.textContent = logs.length;
+  }
+};
+
+function toggleOpLog() {
+  const panel = document.getElementById('opLogPanel');
+  if (!panel) return;
+  const isShow = panel.style.display !== 'none';
+  panel.style.display = isShow ? 'none' : 'block';
+  if (!isShow) OpLog.refresh();
+}
+
+function clearOpLog() {
+  OpLog.clear();
 }
 
 // === Error display ===
@@ -381,6 +449,7 @@ async function doFetch(forceAll, nocache = false) {
     if (!r.ok) {
       const msg = r.error || (r.authError ? '请先解锁' : '抓取出错了');
       showError(msg, r.errType || 'server');
+      OpLog.add('error', msg);
       return;
     }
 
@@ -396,12 +465,34 @@ async function doFetch(forceAll, nocache = false) {
     document.getElementById('statsArea').style.display = 'grid';
     document.getElementById('filtersArea').style.display = 'block';
     document.getElementById('tableArea').style.display = 'block';
+
+    OpLog.add('fetch', `抓取 ${allRows.length} 条（模式：${MODE_LABELS[currentMode]}，${nocache ? '强制' : '缓存'}`);
   } catch(e) {
     showError('🌐 网络请求失败：' + e.message, 'network');
+    OpLog.add('error', '网络异常：' + e.message);
+    OpLog.add('error', '网络异常：' + e.message);
   } finally {
     btn.textContent = orig;
     btn.disabled = false;
     isFetching = false;
+  }
+}
+
+// === Theme Toggle ===
+function getTheme() {
+  return localStorage.getItem('tradingTheme') || 'dark';
+}
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('tradingTheme', t);
+  const btn = document.getElementById('btnTheme');
+  if (btn) btn.textContent = t === 'dark' ? '☀️ 亮色' : '🌙 暗色';
+}
+function toggleTheme() {
+  setTheme(getTheme() === 'dark' ? 'light' : 'dark');
+  if (typeof updateCharts === 'function') {
+    const panel = document.getElementById('chartPanel');
+    if (panel && panel.style.display !== 'none') updateCharts();
   }
 }
 
@@ -423,9 +514,44 @@ function exportCSV() {
   a.href = URL.createObjectURL(blob);
   a.download = `大粤K线_合并_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
+  OpLog.add('export', `导出 CSV，共 ${filteredRows.length} 条`);
 }
 
-
+// === Export XLSX (Excel) ===
+function exportXLSX() {
+  if (!filteredRows.length) { alert('没有数据可导出'); return; }
+  // 生成 HTML 表格格式的 xls（兼容 Excel/WPS）
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>大粤K线数据</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>';
+  html += '<table border="1" cellpadding="4" cellspacing="0" style="font-size:12px;border-collapse:collapse">';
+  // Header
+  html += '<tr style="background:#1a1d2e;color:#ecf0f1;font-weight:bold">';
+  COLS.forEach(c => { html += '<th>' + c.label + '</th>'; });
+  html += '</tr>';
+  // Body
+  filteredRows.forEach(row => {
+    html += '<tr>';
+    COLS.forEach(c => {
+      let v = row[c.key] !== undefined ? row[c.key] : '';
+      const cls = c.cls || '';
+      if (c.key === 'profitPts' || c.key === 'profitAmt') {
+        const p = parseFloat(String(v).replace(/[¥+¥,]/g,''));
+        const color = !isNaN(p) ? (p > 0 ? '#00ff88' : p < 0 ? '#ff4757' : '') : '';
+        html += '<td style="' + (color ? 'color:' + color + ';font-weight:bold;font-family:monospace' : '') + '">' + v + '</td>';
+      } else {
+        html += '<td>' + v + '</td>';
+      }
+    });
+    html += '</tr>';
+  });
+  html += '</table></body></html>';
+  const blob = new Blob(['\uFEFF' + html], {type:'application/vnd.ms-excel;charset=utf-8-sig'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `大粤K线_数据_${new Date().toISOString().slice(0,10)}.xls`;
+  a.click();
+  OpLog.add('export', `导出 Excel，共 ${filteredRows.length} 条`);
+}
 
 // === Load teachers filter ===
 async function loadTeachers() {
@@ -496,15 +622,18 @@ async function doUnlock() {
       document.getElementById('lockInput').value = '';
       document.getElementById('lockError').textContent = '';
       showDataScreen();
+      OpLog.add('login', '解锁成功');
       loadRemoteBanner();
       await autoLogin();
       await doFetch(false);
     } else if (r.disabled) {
       document.getElementById('lockError').textContent = '该应用已被停用，请联系管理员';
+      OpLog.add('error', '解锁失败：应用已停用');
     } else {
       document.getElementById('lockError').textContent = r.error || '密码错误';
     }
   } catch(e) {
+    OpLog.add('error', '解锁失败：' + (r.error || '密码错误'));
     document.getElementById('lockError').textContent = '🌐 连接失败，请确认服务已启动（localhost:3456）';
   }
 }
@@ -525,6 +654,10 @@ async function init() {
   const weekAgo = new Date(Date.now()-7*86400000).toISOString().slice(0,10);
   document.getElementById('fEnd').value = today;
   document.getElementById('fStart').value = weekAgo;
+
+  setTheme(getTheme());
+  const chartBtn = document.getElementById('btnChart');
+  if (chartBtn) chartBtn.textContent = '📊 数据图表';
 
   renderHead();
   loadTeachers();
@@ -549,13 +682,14 @@ document.getElementById('btnFetch').onclick   = () => doFetch(false);
 document.getElementById('btnForceRefresh').onclick = () => doFetch(false, true);
 document.getElementById('btnFetchAll').onclick = () => doFetch(true);
 document.getElementById('btnExport').onclick   = exportCSV;
+document.getElementById('btnXLSX').onclick   = exportXLSX;
+document.getElementById('btnChart').onclick   = toggleChartPanel;
+document.getElementById('btnTheme').onclick   = toggleTheme;
+document.getElementById('btnOpLog').onclick    = toggleOpLog;
 document.getElementById('btnLottery').onclick   = openLottery;
 document.getElementById('btnMinesweeper').onclick  = openMine;
 document.getElementById('lotteryModal').addEventListener('click', e => {
   if (e.target.id === 'lotteryModal') closeLottery();
-});
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && document.getElementById('lotteryModal').classList.contains('show')) closeLottery();
 });
 document.getElementById('btnFirst').onclick     = () => goPage(1);
 document.getElementById('btnPrev').onclick      = () => goPage(page-1);

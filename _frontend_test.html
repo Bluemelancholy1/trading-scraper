@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Frontend JS Test v2</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1a1d2e; color: #0f0; }
+    .pass { color: #0f0; }
+    .fail { color: #f00; }
+    .info { color: #ff0; }
+    pre { background: #000; padding: 10px; border-radius: 4px; max-height: 400px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <h2>前端 JS 加载测试 v2</h2>
+  <div id="results"></div>
+  <pre id="log"></pre>
+
+  <!-- 模拟原始页面结构 -->
+  <div id="lotteryModal" style="display:none"></div>
+  <div id="mineModal" style="display:none"></div>
+  <button id="btnLottery" style="display:none">抽奖</button>
+  <button id="btnMinesweeper" style="display:none">扫雷</button>
+  <canvas id="lotteryCanvas" width="300" height="300" style="display:none"></canvas>
+  <canvas id="mineCanvas" width="300" height="300" style="display:none"></canvas>
+  <div id="mineBoard" style="display:none"></div>
+  <div id="mineStatus" style="display:none"></div>
+  <div id="mineTimer" style="display:none"></div>
+  <div id="mineFlagCount" style="display:none"></div>
+
+  <!-- 按正确顺序加载 -->
+  <script src="lottery.js"></script>
+  <script src="minesweeper.js"></script>
+  <script>
+    // 捕获 app.js 可能的错误
+    window.appJsErrors = [];
+    window.onerror = function(msg, url, line) {
+      window.appJsErrors.push({msg, url, line});
+      document.getElementById('log').textContent += 'ERROR: ' + msg + ' at line ' + line + '\n';
+    };
+  </script>
+  <script src="app.js"></script>
+
+  <script>
+    const results = [];
+    const log = document.getElementById('log');
+    function add(msg, type) {
+      results.push({msg, type});
+      log.textContent += (type === 'pass' ? '✓ ' : type === 'fail' ? '✗ ' : '→ ') + msg + '\n';
+    }
+
+    // 显示捕获的错误
+    if (window.appJsErrors.length > 0) {
+      add('app.js 执行错误: ' + window.appJsErrors.length + ' 个', 'fail');
+      window.appJsErrors.forEach(e => add('  ' + e.msg + ' (line ' + e.line + ')', 'fail'));
+    } else {
+      add('app.js 执行无错误', 'pass');
+    }
+
+    // 测试函数定义 - 修正函数名
+    const tests = [
+      ['typeof openLottery', typeof openLottery, 'function'],
+      ['typeof closeLottery', typeof closeLottery, 'function'],
+      ['typeof drawLotteryWheel', typeof drawLotteryWheel, 'function'],
+      ['typeof doLotteryDraw', typeof doLotteryDraw, 'function'],
+      ['typeof openMine', typeof openMine, 'function'],
+      ['typeof closeMine', typeof closeMine, 'function'],
+      ['typeof initMinesweeper', typeof initMinesweeper, 'function'],  // 修正：initMine -> initMinesweeper
+      ['typeof drawMines', typeof drawMines, 'function'],
+      ['typeof reveal', typeof reveal, 'function'],
+      ['typeof toggleFlag', typeof toggleFlag, 'function'],
+      ['typeof doUnlock', typeof doUnlock, 'function'],
+      ['typeof showLockScreen', typeof showLockScreen, 'function'],
+      ['typeof showDataScreen', typeof showDataScreen, 'function'],
+      ['typeof init', typeof init, 'function'],
+      ['LOTTERY_PRIZES 存在', typeof LOTTERY_PRIZES, 'object'],
+      ['LOTTERY_PRIZES 长度', LOTTERY_PRIZES?.length, 5],
+    ];
+
+    let pass = 0, fail = 0;
+    tests.forEach(([name, actual, expected]) => {
+      if (actual === expected) {
+        add(name + ': ' + actual, 'pass');
+        pass++;
+      } else {
+        add(name + ' 期望=' + expected + ' 实际=' + actual, 'fail');
+        fail++;
+      }
+    });
+
+    // 测试元素存在
+    const btnLottery = document.getElementById('btnLottery');
+    const btnMinesweeper = document.getElementById('btnMinesweeper');
+    add('btnLottery 元素存在: ' + (btnLottery ? '是' : '否'), btnLottery ? 'pass' : 'fail');
+    add('btnMinesweeper 元素存在: ' + (btnMinesweeper ? '是' : '否'), btnMinesweeper ? 'pass' : 'fail');
+
+    // 测试事件绑定
+    if (btnLottery) {
+      if (btnLottery.onclick) {
+        add('btnLottery.onclick 已绑定', 'pass');
+        pass++;
+      } else {
+        add('btnLottery.onclick 未绑定 (值为: ' + btnLottery.onclick + ')', 'fail');
+        fail++;
+      }
+    }
+    if (btnMinesweeper) {
+      if (btnMinesweeper.onclick) {
+        add('btnMinesweeper.onclick 已绑定', 'pass');
+        pass++;
+      } else {
+        add('btnMinesweeper.onclick 未绑定', 'fail');
+        fail++;
+      }
+    }
+
+    const total = pass + fail;
+    document.getElementById('results').innerHTML =
+      '<h3>结果: <span class="' + (fail===0?'pass':'fail') + '">' +
+      pass + ' 通过 / ' + fail + ' 失败</span></h3>' +
+      (fail === 0 ? '<p class="pass">✔✔✔ 前端测试通过！</p>' :
+       '<p class="fail">✖ 有失败项，请检查</p>');
+  </script>
+</body>
+</html>
