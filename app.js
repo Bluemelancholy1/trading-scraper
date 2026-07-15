@@ -633,7 +633,7 @@ async function doUnlock() {
       document.getElementById('lockError').textContent = r.error || '密码错误';
     }
   } catch(e) {
-    OpLog.add('error', '解锁失败：' + (r.error || '密码错误'));
+    OpLog.add('error', '解锁失败：' + (e.message || '网络异常'));
     document.getElementById('lockError').textContent = '🌐 连接失败，请确认服务已启动（localhost:3456）';
   }
 }

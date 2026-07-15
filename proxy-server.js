@@ -1,7 +1,8 @@
 ﻿// DayueKX Proxy Server v3 - 建仓提醒 + 平仓提醒 + 合并模式
 // 运行: node proxy-server.js | 打开: http://localhost:3456/
 
-require('dotenv').config();
+// 加载 .env（ASAR 打包后路径可能不同，失败则忽略）
+try { require('dotenv').config(); } catch(e) { /* ignore */ }
 
 const http = require('http');
 const https = require('https');

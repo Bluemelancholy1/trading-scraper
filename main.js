@@ -74,8 +74,25 @@ app.whenReady().then(() => {
     });
     mainWindow.loadURL("http://localhost:3456");
 
+    // 【调试】加载完成后打开 DevTools（F12 等效），方便排查问题
+    mainWindow.webContents.once("did-frame-finish-load", () => {
+      mainWindow.webContents.openDevTools({ mode: "detach" });
+    });
+
+    // 渲染进程加载失败
+    mainWindow.webContents.on("did-fail-load", (event, errorCode, errorDesc) => {
+      log.error('[页面加载失败] errorCode=' + errorCode + ' desc=' + errorDesc);
+    });
+
+    // 把前端 console 输出写到日志，方便排查
+    mainWindow.webContents.on("console-message", (event, level, message, line, sourceId) => {
+      const icon = ['i', '>', '⚠', 'X'][level] || '?';
+      log.info('[Renderer ' + icon + '] ' + message + ' (line:' + line + ')');
+    });
+
     // 渲染进程就绪后，开始检查更新
     mainWindow.webContents.on("did-finish-load", () => {
+      log.info('[页面] did-finish-load 触发');
       // 延迟一下，等页面初始化完成
       setTimeout(() => {
         autoUpdater.checkForUpdatesAndNotify().catch((err) => {

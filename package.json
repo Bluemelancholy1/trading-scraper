@@ -1,8 +1,8 @@
 {
   "name": "trading-scraper",
-  "version": "1.0.20",
-  "description": "交易数据抓取工具",
-  "author": "陈少",
+  "version": "1.0.21",
+  "description": "浜ゆ槗鏁版嵁鎶撳彇宸ュ叿",
+  "author": "闄堝皯",
   "main": "main.js",
   "scripts": {
     "start": "node proxy-server.js",
@@ -22,7 +22,7 @@
   },
   "build": {
     "appId": "com.trading.scraper",
-    "productName": "交易数据抓取工具",
+    "productName": "浜ゆ槗鏁版嵁鎶撳彇宸ュ叿",
     "directories": {
       "output": "dist4"
     },
