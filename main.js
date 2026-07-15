@@ -74,11 +74,6 @@ app.whenReady().then(() => {
     });
     mainWindow.loadURL("http://localhost:3456");
 
-    // 【调试】加载完成后打开 DevTools（F12 等效），方便排查问题
-    mainWindow.webContents.once("did-frame-finish-load", () => {
-      mainWindow.webContents.openDevTools({ mode: "detach" });
-    });
-
     // 渲染进程加载失败
     mainWindow.webContents.on("did-fail-load", (event, errorCode, errorDesc) => {
       log.error('[页面加载失败] errorCode=' + errorCode + ' desc=' + errorDesc);
