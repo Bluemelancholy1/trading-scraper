@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const querystring = require('querystring');
 const crypto = require('crypto');
+const WebSocket = require('ws');
 
 const PORT = 3456;
 const ROOM_ID = 7000;
@@ -672,6 +673,85 @@ async function fetchMerged(filters, maxPages) {
   return { rows: filtered, totalRows: filtered.length, mode: 'merged' };
 }
 
+// === 五子棋联网对战（局域网 P2P，无需外部服务器） ===
+let gomokuWss = null;
+let gomokuPeers = { host: null, guest: null };
+const GOMOKU_WS_PORT = 3460;
+
+function getLanIp() {
+  try {
+    const os = require('os');
+    const nets = os.networkInterfaces();
+    const candidates = [];
+    for (const name of Object.keys(nets)) {
+      for (const ni of nets[name]) {
+        if (ni.family === 'IPv4' && !ni.internal) candidates.push(ni.address);
+      }
+    }
+    const priv = candidates.find(a => /^192\.168\./.test(a) || /^10\./.test(a) || /^172\.(1[6-9]|2\d|3[01])\./.test(a));
+    return priv || candidates[0] || '127.0.0.1';
+  } catch(e) { return '127.0.0.1'; }
+}
+
+function startGomokuHost() {
+  return new Promise((resolve, reject) => {
+    if (gomokuWss) { resolve({ room: getLanIp() + ':' + GOMOKU_WS_PORT }); return; }
+    try {
+      gomokuWss = new WebSocket.Server({ port: GOMOKU_WS_PORT, host: '0.0.0.0' });
+      gomokuPeers = { host: null, guest: null };
+      gomokuWss.on('connection', (ws) => {
+        const isHost = !gomokuPeers.host;
+        if (!gomokuPeers.host) gomokuPeers.host = ws;
+        else if (!gomokuPeers.guest) gomokuPeers.guest = ws;
+        else { try { ws.close(1000, 'room full'); } catch(e){} return; }
+        console.log('[GOMOKU] connection:', isHost ? 'host' : 'guest', '| host_set=', !!gomokuPeers.host, 'guest_set=', !!gomokuPeers.guest);
+        ws.on('message', (raw) => {
+          // 确保转成字符串（Node.js ws 库默认返回 Buffer；如果 relay Buffer 浏览器收到 Blob）
+          const s = (typeof raw === 'string') ? raw : raw.toString('utf8');
+          let m = null; try { m = JSON.parse(s); } catch(e){}
+          
+          // 记录 hello 用于握手
+          if (m && m.t === 'hello') {
+            ws.helloMsg = s; ws.role = m.role;
+            // server-pull 补发：当前方发 hello 时，把对端 hello relay 给当前方
+            if (!isHost && gomokuPeers.host && gomokuPeers.host.helloMsg) {
+              try { ws.send(gomokuPeers.host.helloMsg); console.log('[GOMOKU] pull host->guest'); } catch(e){}
+            }
+            if (isHost && gomokuPeers.guest && gomokuPeers.guest.helloMsg) {
+              try { gomokuPeers.guest.send(gomokuPeers.host.helloMsg); console.log('[GOMOKU] pull host->guest (rev)'); } catch(e){}
+            }
+          }
+          
+          // 所有消息 relay 给对方（hello 已在上面 relay 过了，但再发一次无害）
+          const other = (ws === gomokuPeers.host) ? gomokuPeers.guest : gomokuPeers.host;
+          if (other && other.readyState === WebSocket.OPEN) {
+            try { other.send(s); console.log('[GOMOKU] relay', ws.role || '?', '->', other.role || '?'); } catch(e){}
+          }
+        });
+        ws.on('close', () => {
+          const other = (ws === gomokuPeers.host) ? gomokuPeers.guest : gomokuPeers.host;
+          if (ws === gomokuPeers.host) gomokuPeers.host = null; else gomokuPeers.guest = null;
+          if (other && other.readyState === WebSocket.OPEN) { try { other.send(JSON.stringify({ t: 'bye' })); } catch(e){} }
+        });
+        ws.on('error', () => {});
+
+      });
+      gomokuWss.on('error', (e) => log('err', 'Gomoku WS: ' + e.message));
+      log('ok', 'Gomoku host started on port ' + GOMOKU_WS_PORT);
+      resolve({ room: getLanIp() + ':' + GOMOKU_WS_PORT });
+    } catch (e) {
+      gomokuWss = null;
+      reject(e);
+    }
+  });
+}
+
+function stopGomokuHost() {
+  if (gomokuWss) { try { gomokuWss.close(); } catch(e){} }
+  gomokuWss = null;
+  gomokuPeers = { host: null, guest: null };
+}
+
 // --- HTTP Server ---
 const server = http.createServer((req, res) => {
   try {
@@ -712,6 +792,24 @@ const server = http.createServer((req, res) => {
       } catch(e) { /* fall through to 404 */ }
     }
 
+    // 五子棋联网对战 - 创建房间（启动本地 WS 中转，返回房间号=局域网IP:端口）
+    if (urlPath === '/gomoku/host' && (req.method === 'POST' || req.method === 'GET')) {
+      startGomokuHost().then(r => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, room: r.room }));
+      }).catch(e => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: e.message }));
+      });
+      return;
+    }
+    // 五子棋联网对战 - 关闭房间
+    if (urlPath === '/gomoku/stop' && (req.method === 'POST' || req.method === 'GET')) {
+      stopGomokuHost();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
     if (urlPath === '/status') {
       const hasSession = !!(aspSession || (BROWSER_HEADERS['Cookie'] && BROWSER_HEADERS['Cookie'].includes('ASPSESSIONID')));
       res.writeHead(200, { 'Content-Type': 'application/json' });
