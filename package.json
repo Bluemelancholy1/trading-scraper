@@ -1,6 +1,6 @@
 {
   "name": "trading-scraper",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "description": "交易数据抓取工具",
   "author": "陈少",
   "main": "main.js",
@@ -62,7 +62,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "Bluemelancoholy1",
+      "owner": "Bluemelancholy1",
       "repo": "trading-scraper",
       "releaseType": "release"
     }
