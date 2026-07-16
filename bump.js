@@ -1,5 +1,5 @@
 const fs = require('fs');
-const VER = '1.0.26';
+const VER = '1.0.27';
 const path = require('path');
 
 // package.json

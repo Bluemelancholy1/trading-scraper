@@ -564,21 +564,32 @@ tbody td .profit.neg{color:#ff4757;text-shadow:0 0 10px rgba(255,71,87,0.3)}
   </div>
 </div>
 
-<!-- 扫雷 -->
+<!-- 扫雷 - 暗黑科技风 -->
 <div class="modal-overlay mine-modal" id="mineModal">
-  <div class="modal-box">
-    <div class="modal-header" style="border-bottom:1px solid #333;padding-bottom:12px;margin-bottom:0">
-      <h3>🎮 小游戏</h3>
-      <button class="modal-close" onclick="closeMine()">×</button>
+  <div class="modal-box" style="background:linear-gradient(180deg,#0f1117 0%,#1a1d2e 100%);border:1px solid #333;box-shadow:0 0 40px rgba(240,192,64,.15),0 8px 32px rgba(0,0,0,.6)">
+    <!-- 顶部状态栏 -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:20px;padding:16px 20px;background:linear-gradient(180deg,#1a1d2e 0%,#0f1117 100%);border-bottom:1px solid #333;border-radius:8px 8px 0 0">
+      <div style="display:flex;align-items:center;gap:8px;background:#0a0d1a;padding:8px 16px;border-radius:6px;border:1px solid #333;box-shadow:inset 0 2px 4px rgba(0,0,0,.3)">
+        <span style="font-size:18px">💣</span>
+        <span id="mineCounter" style="font-family:'Courier New',monospace;font-size:20px;font-weight:bold;color:#ff6b6b;letter-spacing:2px">010</span>
+      </div>
+      <button id="mineSmiley" onclick="initMinesweeper()" style="width:48px;height:48px;border-radius:50%;border:2px solid #444;background:linear-gradient(180deg,#f0c040 0%,#d4a020 100%);font-size:24px;cursor:pointer;box-shadow:0 4px 8px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.2);transition:all .15s;display:flex;align-items:center;justify-content:center">😎</button>
+      <div style="display:flex;align-items:center;gap:8px;background:#0a0d1a;padding:8px 16px;border-radius:6px;border:1px solid #333;box-shadow:inset 0 2px 4px rgba(0,0,0,.3)">
+        <span style="font-size:18px">⏱</span>
+        <span id="mineTimer" style="font-family:'Courier New',monospace;font-size:20px;font-weight:bold;color:#f0c040;letter-spacing:2px">000</span>
+      </div>
     </div>
-    <div id="mineStatus">💣 剩余雷数：10</div>
-    <canvas id="mineCanvas" width="360" height="360"></canvas>
-    <div class="mine-info">
-      <span class="mine-stat">⏱ <span id="mineTimer">0</span> 秒</span>
-      <button class="mine-btn" onclick="initMinesweeper()">重新开始</button>
-      <span class="mine-stat">🚩 <span id="mineFlagCount">0</span></span>
+    <!-- 棋盘区域 -->
+    <div style="padding:20px;display:flex;flex-direction:column;align-items:center;gap:16px">
+      <canvas id="mineCanvas" width="360" height="360" style="border-radius:4px;box-shadow:0 4px 20px rgba(0,0,0,.5),0 0 0 2px #333"></canvas>
+      <!-- 底部信息 -->
+      <div style="display:flex;align-items:center;gap:16px;font-size:13px;color:#888">
+        <span>🚩 右键/长按插旗</span>
+        <span>|</span>
+        <span>左键揭开</span>
+      </div>
     </div>
-    <div class="modal-btns">
+    <div class="modal-btns" style="border-top:1px solid #333;padding-top:16px">
       <button class="btn-cancel" onclick="closeMine()">关闭</button>
     </div>
   </div>
