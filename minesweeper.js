@@ -5,6 +5,10 @@ let mGameOver = false, mWon = false, mFirstClick = true;
 let mTimerInterval = null, mSeconds = 0;
 let mCanvas, mCtx, mCellSize;
 let mHoverCell = null;
+let mPressedCell = null;  // 正在按下的格子
+let mExplodingCells = []; // 爆炸动画中的格子
+let mConfetti = [];       // 胜利彩带
+let mAnimationId = null;  // 动画帧ID
 
 // 经典扫雷数字配色
 const NUM_COLORS = {
@@ -36,7 +40,9 @@ const COLORS = {
 function initMinesweeper() {
   mBoard = []; mRevealed = []; mFlagged = [];
   mGameOver = false; mWon = false; mFirstClick = true;
-  mSeconds = 0; mHoverCell = null;
+  mSeconds = 0; mHoverCell = null; mPressedCell = null;
+  mExplodingCells = []; mConfetti = [];
+  if (mAnimationId) { cancelAnimationFrame(mAnimationId); mAnimationId = null; }
   clearInterval(mTimerInterval); mTimerInterval = null;
   
   // 初始化数组
@@ -103,6 +109,7 @@ function bindMineEvents() {
   
   // 鼠标移动 - 悬停效果
   mCanvas.addEventListener('mousemove', (e) => {
+    if (mGameOver) return;
     const rect = mCanvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -110,7 +117,7 @@ function bindMineEvents() {
     const r = Math.floor(y / mCellSize);
     
     if (r >= 0 && r < mRows && c >= 0 && c < mCols) {
-      if (!mRevealed[r][c] && !mGameOver) {
+      if (!mRevealed[r][c]) {
         mHoverCell = { r, c };
         drawMines();
       }
@@ -124,10 +131,11 @@ function bindMineEvents() {
   
   mCanvas.addEventListener('mouseleave', () => {
     mHoverCell = null;
+    mPressedCell = null;
     drawMines();
   });
   
-  // 左键点击
+  // 左键按下
   mCanvas.addEventListener('mousedown', (e) => {
     if (mGameOver) return;
     const rect = mCanvas.getBoundingClientRect();
@@ -138,11 +146,21 @@ function bindMineEvents() {
     
     if (r >= 0 && r < mRows && c >= 0 && c < mCols) {
       if (e.button === 0) { // 左键
-        if (!mFlagged[r][c]) {
-          // 按下动画
-          drawCellPressed(r, c);
+        if (!mFlagged[r][c] && !mRevealed[r][c]) {
+          mPressedCell = { r, c };
+          updateSmiley('😮'); // 紧张表情
+          drawMines();
         }
       }
+    }
+  });
+  
+  // 全局鼠标松开（处理拖出canvas的情况）
+  document.addEventListener('mouseup', () => {
+    if (mPressedCell && !mGameOver) {
+      mPressedCell = null;
+      updateSmiley('😎');
+      drawMines();
     }
   });
   
@@ -198,6 +216,11 @@ function drawMines() {
       drawCell(r, c);
     }
   }
+  
+  // 绘制胜利彩带
+  if (mWon && mConfetti.length > 0) {
+    drawConfetti();
+  }
 }
 
 function drawCell(r, c) {
@@ -205,10 +228,17 @@ function drawCell(r, c) {
   const y = r * mCellSize;
   const pad = 1;
   
+  // 检查是否在爆炸动画中
+  const exploding = mExplodingCells.find(e => e.r === r && e.c === c);
+  if (exploding) {
+    drawExplodingCell(x, y, exploding.phase);
+    return;
+  }
+  
   if (!mRevealed[r][c]) {
     // 未揭开的格子 - 3D 凸起效果
     const isHover = mHoverCell && mHoverCell.r === r && mHoverCell.c === c;
-    const isPressed = false; // 简化，不追踪持续按下
+    const isPressed = mPressedCell && mPressedCell.r === r && mPressedCell.c === c;
     
     // 阴影层
     mCtx.fillStyle = '#000';
@@ -363,6 +393,85 @@ function drawNumber(x, y, num) {
   mCtx.shadowBlur = 0;
 }
 
+// 爆炸动画绘制
+function drawExplodingCell(x, y, phase) {
+  const pad = 1;
+  const shakeX = (Math.random() - 0.5) * 4 * phase;
+  const shakeY = (Math.random() - 0.5) * 4 * phase;
+  
+  // 背景变红闪烁
+  const redIntensity = 0.3 + phase * 0.5;
+  mCtx.fillStyle = `rgba(255, 23, 68, ${redIntensity})`;
+  mCtx.fillRect(x + pad + shakeX, y + pad + shakeY, mCellSize - pad * 2, mCellSize - pad * 2);
+  
+  // 爆炸波纹
+  const cx = x + mCellSize / 2 + shakeX;
+  const cy = y + mCellSize / 2 + shakeY;
+  const rippleRadius = mCellSize * 0.3 + phase * mCellSize * 0.5;
+  
+  const grad = mCtx.createRadialGradient(cx, cy, 0, cx, cy, rippleRadius);
+  grad.addColorStop(0, 'rgba(255, 23, 68, 0.8)');
+  grad.addColorStop(0.5, 'rgba(255, 100, 50, 0.4)');
+  grad.addColorStop(1, 'transparent');
+  
+  mCtx.fillStyle = grad;
+  mCtx.beginPath();
+  mCtx.arc(cx, cy, rippleRadius, 0, Math.PI * 2);
+  mCtx.fill();
+  
+  // 地雷
+  drawMine(x + shakeX, y + shakeY, true);
+}
+
+// 初始化胜利彩带
+function initConfetti() {
+  mConfetti = [];
+  const colors = ['#f0c040', '#00bcd4', '#4caf50', '#ff5252', '#7c4dff', '#ff9800'];
+  for (let i = 0; i < 100; i++) {
+    mConfetti.push({
+      x: Math.random() * mCanvas.width,
+      y: Math.random() * mCanvas.height - mCanvas.height,
+      vx: (Math.random() - 0.5) * 4,
+      vy: Math.random() * 3 + 2,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: Math.random() * 6 + 4,
+      rotation: Math.random() * Math.PI * 2,
+      rotationSpeed: (Math.random() - 0.5) * 0.2
+    });
+  }
+}
+
+// 绘制彩带动画
+function drawConfetti() {
+  if (!mWon || mConfetti.length === 0) return;
+  
+  let active = false;
+  for (let p of mConfetti) {
+    if (p.y < mCanvas.height + 20) {
+      active = true;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rotation += p.rotationSpeed;
+      
+      mCtx.save();
+      mCtx.translate(p.x, p.y);
+      mCtx.rotate(p.rotation);
+      mCtx.fillStyle = p.color;
+      mCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+      mCtx.restore();
+    }
+  }
+  
+  if (active && mAnimationId) {
+    requestAnimationFrame(drawConfettiLoop);
+  }
+}
+
+function drawConfettiLoop() {
+  drawMines();
+  drawConfetti();
+}
+
 function reveal(r, c) {
   if (mGameOver || mRevealed[r][c] || mFlagged[r][c]) return;
   
@@ -454,17 +563,97 @@ function gameOver(won) {
   mWon = won;
   clearInterval(mTimerInterval);
   
-  // 显示所有雷
-  for (let r = 0; r < mRows; r++) {
-    for (let c = 0; c < mCols; c++) {
-      if (mBoard[r][c] === -1) {
-        mRevealed[r][c] = true;
+  if (!won) {
+    // 爆炸动画 - 找到踩中的雷开始
+    let explodedR = -1, explodedC = -1;
+    for (let r = 0; r < mRows; r++) {
+      for (let c = 0; c < mCols; c++) {
+        if (mBoard[r][c] === -1 && mRevealed[r][c]) {
+          explodedR = r;
+          explodedC = c;
+        }
       }
     }
+    
+    // 触发爆炸动画
+    if (explodedR >= 0) {
+      triggerExplosion(explodedR, explodedC);
+    }
+    
+    // 延迟显示所有雷
+    setTimeout(() => {
+      for (let r = 0; r < mRows; r++) {
+        for (let c = 0; c < mCols; c++) {
+          if (mBoard[r][c] === -1) {
+            mRevealed[r][c] = true;
+          }
+        }
+      }
+      drawMines();
+    }, 600);
   }
   
   updateSmiley(won ? '😎' : '😵');
   drawMines();
+}
+
+// 触发爆炸动画
+function triggerExplosion(startR, startC) {
+  mExplodingCells = [];
+  const queue = [{ r: startR, c: startC, delay: 0 }];
+  const visited = new Set([`${startR},${startC}`]);
+  
+  // BFS 扩散爆炸效果
+  while (queue.length > 0) {
+    const { r, c, delay } = queue.shift();
+    mExplodingCells.push({ r, c, phase: 0, delay });
+    
+    // 相邻格子
+    const neighbors = [
+      [r-1, c], [r+1, c], [r, c-1], [r, c+1],
+      [r-1, c-1], [r-1, c+1], [r+1, c-1], [r+1, c+1]
+    ];
+    
+    for (const [nr, nc] of neighbors) {
+      if (nr >= 0 && nr < mRows && nc >= 0 && nc < mCols && 
+          mBoard[nr][nc] === -1 && !visited.has(`${nr},${nc}`)) {
+        visited.add(`${nr},${nc}`);
+        queue.push({ r: nr, c: nc, delay: delay + 100 });
+      }
+    }
+  }
+  
+  // 动画循环
+  let startTime = null;
+  function animate(timestamp) {
+    if (!startTime) startTime = timestamp;
+    const elapsed = timestamp - startTime;
+    
+    let active = false;
+    for (let cell of mExplodingCells) {
+      if (elapsed >= cell.delay) {
+        const progress = (elapsed - cell.delay) / 400; // 400ms 动画
+        if (progress < 1) {
+          cell.phase = 1 - progress;
+          active = true;
+        } else {
+          cell.phase = 0;
+        }
+      } else {
+        active = true;
+      }
+    }
+    
+    drawMines();
+    
+    if (active) {
+      requestAnimationFrame(animate);
+    } else {
+      mExplodingCells = [];
+    }
+  }
+  
+  requestAnimationFrame(animate);
 }
 
 function checkWin() {
@@ -479,6 +668,9 @@ function checkWin() {
   
   if (revealedCount === mRows * mCols - mMines) {
     gameOver(true);
+    // 触发胜利彩带
+    initConfetti();
+    mAnimationId = requestAnimationFrame(drawConfettiLoop);
   }
 }
 
