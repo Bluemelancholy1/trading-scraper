@@ -486,8 +486,11 @@ function showGomokuNet() {
 }
 
 function setNetStatus(text, isErr) {
-  const el = document.getElementById('gomokuNetStatus');
-  if (el) { el.textContent = text; el.style.color = isErr ? '#ff6b6b' : '#f0c040'; }
+  // 优先写外部 status（总是可见），同时在创建房间后同步到房间内 status
+  const ext = document.getElementById('gomokuNetStatus');
+  if (ext) { ext.textContent = text; ext.style.color = isErr ? '#ff6b6b' : '#f0c040'; }
+  const inner = document.getElementById('gomokuRoomStatus');
+  if (inner) { inner.textContent = text; inner.style.color = isErr ? '#ff6b6b' : '#f0c040'; }
 }
 
 function copyGomokuRoom() {
@@ -502,29 +505,57 @@ function gomokuCreateRoom() {
     .then(r => r.json())
     .then(d => {
       if (!d.ok) { setNetStatus('创建失败：' + (d.error || ''), true); return; }
-      const code = d.room;
+      const code = d.room; // 6位数字
       const codeEl = document.getElementById('gomokuRoomCode');
       if (codeEl) codeEl.textContent = code;
+      // 同步显示完整地址（小字）
+      const wsUrlEl = document.getElementById('gomokuRoomWsUrl');
+      if (wsUrlEl) wsUrlEl.textContent = d.wsUrl || '';
       const info = document.getElementById('gomokuRoomInfo');
       if (info) info.style.display = 'flex';
-      setNetStatus('等待对手加入…（把房间号发给朋友）');
-      gomokuConnect('localhost:3460');
+      // 记忆 host 的完整地址，guest 可跨机时使用
+      try {
+        if (d.wsUrl) localStorage.setItem('gomokuLastHostWsUrl', d.wsUrl);
+        if (code) localStorage.setItem('gomokuLastHostRoom', code);
+      } catch(e){}
+      setNetStatus('等待对手加入…（把 6 位房间号发给朋友）');
+      gomokuConnect(d.wsUrl || 'ws://localhost:3460');
     })
     .catch(e => setNetStatus('创建失败：' + e.message, true));
 }
 
-function gomokuJoinRoomFromInput() {
-  const inp = document.getElementById('gomokuJoinInput');
-  const room = inp ? inp.value.trim() : '';
-  if (!room) { setNetStatus('请输入房间号', true); return; }
-  gNetRole = 'guest';
-  gomokuConnect(room);
+function copyGomokuWsUrl() {
+  const el = document.getElementById('gomokuRoomWsUrl');
+  if (el && navigator.clipboard) navigator.clipboard.writeText(el.textContent).catch(()=>{});
 }
 
-function gomokuConnect(room) {
+function gomokuJoinRoomFromInput() {
+  const inp = document.getElementById('gomokuJoinInput');
+  const val = inp ? inp.value.trim() : '';
+  if (!val) { setNetStatus('请输入房间号', true); return; }
+  gNetRole = 'guest';
+  
+  // 判断：6位数字 或 完整地址（ws://... 或 IP:PORT）
+  if (/^\d{6}$/.test(val)) {
+    // 6位数字 → 用记忆的 host 地址
+    let wsUrl = '';
+    try { wsUrl = localStorage.getItem('gomokuLastHostWsUrl') || ''; } catch(e){}
+    if (!wsUrl) {
+      setNetStatus('未记住 host 地址，请先在同一台机器上创建过房间，或输入完整地址（ws://...）', true);
+      return;
+    }
+    gomokuConnect(wsUrl);
+  } else {
+    // 完整地址：ws://IP:PORT 或 IP:PORT
+    const wsUrl = val.startsWith('ws://') ? val : ('ws://' + val);
+    gomokuConnect(wsUrl);
+  }
+}
+
+function gomokuConnect(wsUrl) {
   if (gNetWs) { try { gNetWs.close(); } catch(e){} gNetWs = null; }
   try {
-    const ws = new WebSocket('ws://' + room);
+    const ws = new WebSocket(wsUrl);
     gNetWs = ws;
     ws.addEventListener('open', () => {
       ws.send(JSON.stringify({ t: 'hello', role: gNetRole }));

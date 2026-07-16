@@ -695,7 +695,10 @@ function getLanIp() {
 
 function startGomokuHost() {
   return new Promise((resolve, reject) => {
-    if (gomokuWss) { resolve({ room: getLanIp() + ':' + GOMOKU_WS_PORT }); return; }
+    // 生成6位数字房间号（100000-999999）
+    const roomCode = String(Math.floor(100000 + Math.random() * 900000));
+    const wsUrl = 'ws://' + getLanIp() + ':' + GOMOKU_WS_PORT;
+    if (gomokuWss) { resolve({ room: roomCode, wsUrl }); return; }
     try {
       gomokuWss = new WebSocket.Server({ port: GOMOKU_WS_PORT, host: '0.0.0.0' });
       gomokuPeers = { host: null, guest: null };
@@ -737,8 +740,8 @@ function startGomokuHost() {
 
       });
       gomokuWss.on('error', (e) => log('err', 'Gomoku WS: ' + e.message));
-      log('ok', 'Gomoku host started on port ' + GOMOKU_WS_PORT);
-      resolve({ room: getLanIp() + ':' + GOMOKU_WS_PORT });
+      log('ok', 'Gomoku host started on port ' + GOMOKU_WS_PORT + ' (room=' + roomCode + ')');
+      resolve({ room: roomCode, wsUrl });
     } catch (e) {
       gomokuWss = null;
       reject(e);
@@ -796,7 +799,7 @@ const server = http.createServer((req, res) => {
     if (urlPath === '/gomoku/host' && (req.method === 'POST' || req.method === 'GET')) {
       startGomokuHost().then(r => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, room: r.room }));
+        res.end(JSON.stringify({ ok: true, room: r.room, wsUrl: r.wsUrl }));
       }).catch(e => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: false, error: e.message }));

@@ -69,7 +69,9 @@ function post(path) {
   const room = roomData.room;
   await p2.evaluate(() => { openGomoku(); showGomokuNet(); });
   await sleep(300);
+  // 6位数字加入需要先有 localStorage 记忆
   await p2.evaluate((r) => {
+    localStorage.setItem('gomokuLastHostWsUrl', 'ws://localhost:3460');
     document.getElementById('gomokuJoinInput').value = r;
     gomokuJoinRoomFromInput();
   }, room);

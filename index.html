@@ -186,6 +186,8 @@ tbody td .profit.neg{color:#ff4757;text-shadow:0 0 10px rgba(255,71,87,0.3)}
 .game-menu-icon{font-size:36px;line-height:1;margin-bottom:6px}
 .game-menu-name{font-size:16px;font-weight:bold;margin-bottom:4px}
 .game-menu-desc{font-size:11px;opacity:.85}
+.gomoku-mode-btn{padding:5px 12px;background:var(--bg-card2,#2a2d3e);border:1px solid var(--border-color,#444);border-radius:6px;color:var(--text-secondary,#ccc);font-size:13px;cursor:pointer;transition:all .15s}
+.gomoku-mode-btn:hover{border-color:#f0c040}
 .modal-btns button{padding:8px 20px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:bold;transition:.2s}
 .modal-btns .btn-save{background:linear-gradient(135deg,#00ff88,#00cc6a);color:#fff}
 .modal-btns .btn-save:hover{box-shadow:0 0 15px rgba(0,255,136,0.4)}
@@ -484,17 +486,79 @@ tbody td .profit.neg{color:#ff4757;text-shadow:0 0 10px rgba(255,71,87,0.3)}
 <div class="modal-overlay mine-modal" id="gomokuModal">
   <div class="modal-box" style="width:auto">
     <div class="modal-header" style="border-bottom:1px solid #333;padding-bottom:12px;margin-bottom:0">
-      <h3>⚫ 五子棋 · <span id="gomokuCurrentPlayer">黑</span> 落子</h3>
+      <h3>⚫ 五子棋</h3>
       <button class="modal-close" onclick="closeGomoku()">×</button>
     </div>
-    <div id="gomokuStatus" style="margin-top:10px;font-size:14px">⚫ <b>黑子</b> 落子</div>
-    <canvas id="gomokuCanvas" width="552" height="552" style="display:block;margin:10px auto;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.4);cursor:pointer"></canvas>
-    <div class="mine-info">
+    <!-- 模式选择 -->
+    <div style="display:flex;gap:6px;margin:10px 0;flex-wrap:wrap;align-items:center">
+      <button id="gm_pvp" class="gomoku-mode-btn" onclick="setGomokuMode('pvp',1)">👥 双人</button>
+      <button id="gm_pve-easy" class="gomoku-mode-btn" onclick="setGomokuMode('pve-easy',1)">🤖 简单</button>
+      <button id="gm_pve-medium" class="gomoku-mode-btn" onclick="setGomokuMode('pve-medium',1)">🤖 中等</button>
+      <button id="gm_pve-hard" class="gomoku-mode-btn" onclick="setGomokuMode('pve-hard',1)">🔥 困难</button>
+      <button id="gm_net" class="gomoku-mode-btn" onclick="showGomokuNet()">🌐 联网</button>
+      <div id="gomokuColorBox" style="display:none;gap:6px;align-items:center;margin-left:8px">
+        <span style="font-size:12px;color:#888">先手：</span>
+        <button id="gc_black" class="gomoku-mode-btn" onclick="setGomokuMode(gMode,1)">⚫ 黑</button>
+        <button id="gc_white" class="gomoku-mode-btn" onclick="setGomokuMode(gMode,2)">⚪ 白</button>
+      </div>
+      <div id="gomokuMeta" style="font-size:12px;color:#888;margin-left:auto"></div>
+    </div>
+    <!-- 联网对战面板 -->
+    <div id="gomokuNetPanel" style="display:none;flex-direction:column;align-items:center;gap:14px;padding:24px 0">
+      <div style="font-size:13px;color:#9aa">和同网络的朋友实时对战（无需服务器）</div>
+      <button class="mine-btn" style="font-size:15px;padding:10px 28px;background:linear-gradient(135deg,#f0c040,#e0a020);color:#1a1d2e;font-weight:bold;border:none" onclick="gomokuCreateRoom()">🏠 创建房间</button>
+      <div id="gomokuRoomInfo" style="display:none;flex-direction:column;align-items:center;gap:8px">
+        <div style="font-size:13px;color:#888">把 6 位房间号发给朋友：</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <code id="gomokuRoomCode" style="font-size:32px;color:#f0c040;background:#1a1d2e;padding:12px 20px;border-radius:8px;letter-spacing:6px;font-weight:bold;font-family:'Courier New',monospace"></code>
+          <button class="mine-btn" style="font-size:13px;padding:8px 14px" onclick="copyGomokuRoom()">复制</button>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:6px;padding:8px 12px;background:#0a0d1a;border-radius:6px;border:1px dashed #555">
+          <div style="font-size:11px;color:#9aa">📋 跨设备/不同浏览器使用，请复制完整地址发给朋友：</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <code id="gomokuRoomWsUrl" style="font-size:13px;color:#f0c040;background:#1a1d2e;padding:4px 8px;border-radius:4px"></code>
+            <button class="mine-btn" style="font-size:12px;padding:4px 10px" onclick="copyGomokuWsUrl()">复制地址</button>
+          </div>
+        </div>
+        <div id="gomokuRoomStatus" style="font-size:13px;color:#f0c040;margin-top:2px">等待对手加入…</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:8px">
+        <div style="font-size:12px;color:#888">输入 6 位房间号（同一浏览器）或完整地址（首次必填，如 <span style="color:#f0c040">ws://localhost:3460</span>）</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="gomokuJoinInput" placeholder="6位房间号或 ws://..." maxlength="40" style="background:#1a1d2e;color:#eee;border:1px solid #333;border-radius:6px;padding:8px 12px;font-size:15px;width:260px;outline:none;text-align:center;font-family:'Courier New',monospace">
+          <button class="mine-btn" style="font-size:14px;padding:8px 18px" onclick="gomokuJoinRoomFromInput()">加入</button>
+        </div>
+        <div id="gomokuNetStatus" style="font-size:13px;color:#f0c040;min-height:18px"></div>
+      </div>
+      <button class="mine-btn" style="font-size:13px;padding:6px 16px;opacity:.7" onclick="setGomokuMode('pvp',1)">← 返回本地模式</button>
+    </div>
+    <!-- 等待开始 -->
+    <div id="gomokuHint" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 0">
+      <div style="font-size:48px;margin-bottom:16px">⚫ ⚪</div>
+      <div id="gomokuStatus" style="font-size:15px;margin-bottom:20px">选择模式后点击「开始游戏」</div>
+      <button id="btnResetGomoku" class="mine-btn" style="font-size:16px;padding:10px 36px;background:linear-gradient(135deg,#f0c040,#e0a020);color:#1a1d2e;font-weight:bold;border-radius:8px;border:none" onclick="startGomoku()">🎮 开始游戏</button>
+    </div>
+    <!-- 棋盘区域（默认隐藏） -->
+    <div id="gomokuBoardArea" style="position:relative;display:none;margin:0 auto;width:552px">
+      <canvas id="gomokuCanvas" width="552" height="552" style="display:block;margin:0 auto;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.4);cursor:pointer"></canvas>
+      <!-- 胜负提示遮罩 -->
+      <div id="gomokuResult" style="display:none;position:absolute;inset:0;background:rgba(15,17,23,.82);border-radius:6px;flex-direction:column;align-items:center;justify-content:center;gap:18px">
+        <div id="gomokuResultText" style="font-size:28px;font-weight:bold;color:#f0c040;text-align:center;padding:0 10px"></div>
+        <div style="display:flex;gap:14px">
+          <button class="mine-btn" onclick="gomokuPlayAgain()" style="font-size:15px;padding:10px 22px;background:linear-gradient(135deg,#f0c040,#e0a020);color:#1a1d2e;font-weight:bold;border:none">🔄 再来一局</button>
+          <button class="mine-btn" onclick="gomokuBackToSelect()" style="font-size:15px;padding:10px 22px">↩ 返回</button>
+        </div>
+      </div>
+    </div>
+    <!-- 游戏中控制栏 -->
+    <div class="mine-info" id="gomokuControls" style="display:none">
       <span class="mine-stat">⏱ <span id="gomokuTimer">0</span> 秒</span>
-      <button class="mine-btn" onclick="resetGomoku()">重新开始</button>
+      <span class="mine-stat">⚫ ⚪ <span id="gomokuCurrentPlayer">黑</span></span>
+      <button class="mine-btn" id="btnUndoGomoku" onclick="undoGomoku()">↩ 悔棋</button>
+      <button class="mine-btn" id="btnResetGomoku2" onclick="startGomoku()">重新开始</button>
       <span class="mine-stat">📝 <span id="gomokuMoveCount">0</span> 手</span>
     </div>
-    <div class="modal-btns">
+    <div class="modal-btns" style="margin-top:10px">
       <button class="btn-cancel" onclick="closeGomoku()">关闭</button>
     </div>
   </div>

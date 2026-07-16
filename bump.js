@@ -1,19 +1,21 @@
 const fs = require('fs');
-const path = 'C:\\Users\\chen\\.qclaw\\workspace\\trading-scraper';
+const VER = '1.0.26';
+const path = require('path');
 
-// bump package.json
-const pj = JSON.parse(fs.readFileSync(path + '\\package.json', 'utf8'));
-pj.version = '1.0.25';
-fs.writeFileSync(path + '\\package.json', JSON.stringify(pj, null, 2) + '\n');
+// package.json
+const pkg = JSON.parse(fs.readFileSync('package.json','utf8'));
+pkg.version = VER;
+fs.writeFileSync('package.json', JSON.stringify(pkg,null,2) + '\n');
+console.log('package.json ->', VER);
 
-// bump proxy-server.js
-let ps = fs.readFileSync(path + '\\proxy-server.js', 'utf8');
-ps = ps.replace(/const APP_VERSION = '[\d.]+'/, "const APP_VERSION = '1.0.25'");
-fs.writeFileSync(path + '\\proxy-server.js', ps);
+// proxy-server.js
+let s = fs.readFileSync('proxy-server.js','utf8');
+s = s.replace(/const APP_VERSION = '[^']+';/, "const APP_VERSION = '" + VER + "';");
+fs.writeFileSync('proxy-server.js', s);
+console.log('proxy-server.js APP_VERSION ->', VER);
 
-// bump remote-config.json
-const rc = JSON.parse(fs.readFileSync(path + '\\remote-config.json', 'utf8'));
-rc.latestVersion = '1.0.25';
-fs.writeFileSync(path + '\\remote-config.json', JSON.stringify(rc, null, 2) + '\n');
-
-console.log('bumped to 1.0.25');
+// remote-config.json
+const r = JSON.parse(fs.readFileSync('remote-config.json','utf8'));
+r.latestVersion = VER;
+fs.writeFileSync('remote-config.json', JSON.stringify(r,null,2));
+console.log('remote-config.json ->', VER);

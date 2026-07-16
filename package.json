@@ -1,6 +1,6 @@
 {
   "name": "trading-scraper",
-  "version": "1.0.25",
+  "version": "1.0.26",
   "description": "交易数据抓取工具",
   "author": "陈少",
   "main": "main.js",
@@ -57,12 +57,14 @@
           ]
         }
       ],
-      "signAndEditExecutable": false
+      "signAndEditExecutable": false,
+      "artifactName": "trading-scraper-setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "trading-scraper-setup-${version}.${ext}"
     },
     "publish": {
       "provider": "github",
